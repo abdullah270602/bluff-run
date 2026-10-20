@@ -13,6 +13,7 @@ export interface SeatVM {
   hole: Card[] | null; status: { text: string; tone: Tone } | null;
   dealer: boolean; turn: boolean; winner: boolean;
 }
+export interface Flight { id: number; from: string; to: string; amount: number }
 export interface HeroVM { hole: Card[]; folded: boolean; outcome: string | null; winner: boolean }
 export interface WindowProps {
   stage: { n: number; hand: number; cleared: number; round?: string };
@@ -32,6 +33,9 @@ export interface WindowProps {
   /** Showdown: whose cards travel to the board. */
   reveal?: { seatId: string; hole: Card[]; heroWon: boolean } | null;
   banner?: { key: string; title: string; sub?: string; big?: boolean } | null;
+  flights?: Flight[];
+  /** When the acting seat started thinking; drives the timer sweep. */
+  thinkingSince?: number | null;
   turn: { text: string; sub?: string; progress: number; gold?: boolean };
   actions?: ReactNode;
   leftLinks?: ReactNode;
@@ -73,6 +77,11 @@ export function Seat({ s, compact, pos, you = false, highlight, hideCards = fals
       <div className={`seat-status tone-${s.status?.tone ?? "plain"} ${s.status ? "" : "empty"}`} key={s.status?.text ?? ""}>{s.status?.text ?? " "}</div>
       <div className="avatar-wrap">
         <div className="avatar"><Character id={s.id} model={s.model} mood={s.mood} /></div>
+        {s.turn && (
+          <svg className={`turn-ring ${s.mood === "think" ? "sweep" : ""}`} viewBox="0 0 120 120" aria-hidden="true">
+            <circle cx="60" cy="60" r="57" fill="none" stroke="var(--gold)" strokeWidth="3" strokeLinecap="round" pathLength={100} />
+          </svg>
+        )}
         {showCards && (
           <div className="mini-cards">
             {[0, 1].map((i) => (
@@ -186,6 +195,26 @@ export function TableWindow(p: WindowProps) {
             </div>
           );
         })()}
+        {p.flights && p.flights.length > 0 && (
+          <div className="flights" aria-hidden="true">
+            {p.flights.map((f) => {
+              const at = (key: string): [number, number] => {
+                if (key === "pot") return [590, 104];
+                if (key === p.you?.id) { const yp = layout.you; const w = compact ? 132 : 150; return [1180 - yp.x - w / 2, yp.y + (compact ? 120 : 160)]; }
+                const i = p.seats.findIndex((s) => s.id === key);
+                const pos = layout.opps[i] ?? layout.opps[0];
+                const w = compact ? 132 : 150;
+                return [pos.side === "l" ? pos.x + w / 2 : 1180 - pos.x - w / 2, pos.y + (compact ? 120 : 160)];
+              };
+              const [x0, y0] = at(f.from), [x1, y1] = at(f.to);
+              return (
+                <div key={f.id} className="chip-fly num" style={{ "--x0": `${x0}px`, "--y0": `${y0}px`, "--x1": `${x1}px`, "--y1": `${y1}px` } as CSSProperties}>
+                  <ChipIcon />{f.amount.toLocaleString()}
+                </div>
+              );
+            })}
+          </div>
+        )}
         {p.banner && (
           <div className={`banner ${p.banner.big ? "big" : ""}`} key={p.banner.key} aria-live="polite">
             <div className="banner-title">{p.banner.title}</div>

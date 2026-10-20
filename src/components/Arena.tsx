@@ -11,7 +11,7 @@ import { emptyStats, type RunStats } from "@/game/share";
 import { Mark } from "./Logo";
 import { Results } from "./Results";
 import { Review } from "./Review";
-import { TableWindow, type SeatVM, type Tone } from "./TableWindow";
+import { TableWindow, type Flight, type SeatVM, type Tone } from "./TableWindow";
 
 export const BEST_RUN_KEY = "bluff_run_best_v1";
 export function saveBestRun(s: RunStats) {
@@ -47,11 +47,22 @@ export function Arena() {
   const [phase, setPhase] = useState<Phase>("hand");
   const [stats, setStats] = useState<RunStats>(emptyStats);
   const [thinking, setThinking] = useState<string | null>(null);
+  const [thinkStart, setThinkStart] = useState(0);
+  const [intro, setIntro] = useState(false);
   const [statuses, setStatuses] = useState<Record<string, Status>>({});
   const [raiseOpen, setRaiseOpen] = useState(false);
   const [raiseTo, setRaiseTo] = useState(0);
   const [drawer, setDrawer] = useState<null | "help" | "log">(null);
   const [runLog, setRunLog] = useState<HandRecord[]>([]);
+  const [flights, setFlights] = useState<Flight[]>([]);
+  const [pendingWin, setPendingWin] = useState<Record<string, number>>({});
+  const flightSeq = useRef(0);
+  const fly = useCallback((items: Omit<Flight, "id">[], ttl = 900) => {
+    if (!items.length) return;
+    const batch = items.map((f) => ({ ...f, id: ++flightSeq.current }));
+    setFlights((prev) => [...prev, ...batch]);
+    setTimeout(() => setFlights((prev) => prev.filter((f) => !batch.some((b) => b.id === f.id))), ttl);
+  }, []);
   const decisions = useRef<Record<number, Decision>>({});
   const startStacks = useRef(new Map<string, number>());
   const processed = useRef(-1);
@@ -74,6 +85,8 @@ export function Arena() {
     setRaiseOpen(false);
     setPhase("hand");
     setHandNo(n);
+    setIntro(true);
+    setTimeout(() => setIntro(false), 2600);
     setDealer(d);
   }, []);
 
@@ -134,12 +147,17 @@ export function Arena() {
   const applyAction = useCallback((h: HandState, a: Action, decision?: Decision) => {
     const i = h.toAct, seat = h.seats[i];
     const prevStreet = h.street;
+    const before = h.seats.map((s) => ({ id: s.id, bet: s.bet, committed: s.committed }));
     if (decision) decisions.current[h.log.length] = decision;
     act(h, a);
+    if (h.street !== prevStreet) {
+      // street closed: everyone's chips slide into the pot
+      fly(before.map((b) => ({ from: b.id, to: "pot", amount: b.bet + (b.id === seat.id ? seat.committed - b.committed : 0) })).filter((f) => f.amount > 0));
+    }
     const st = statusFor(a, seat.allIn);
     setStatuses((prev) => ({ ...(h.street !== prevStreet && h.street !== "done" ? {} : prev), [seat.id]: st }));
     setHand({ ...h });
-  }, []);
+  }, [fly]);
 
   const you = useCallback((a: Action) => {
     if (!hand || phase !== "hand" || hand.street === "done" || hand.seats[hand.toAct]?.id !== PLAYER_ID) return;
@@ -156,6 +174,7 @@ export function Arena() {
     const model = oppById.get(actor.id)?.model ?? "jev";
     const view = buildView(hand, hand.toAct, names, personas, STAGES[stageIdx]);
     setThinking(actor.id);
+    setThinkStart(Date.now());
     let cancelled = false;
     (async () => {
       const t0 = Date.now();
@@ -180,6 +199,11 @@ export function Arena() {
     if (!hand || hand.street !== "done" || processed.current === hand.handNo) return;
     processed.current = hand.handNo;
     setPhase("handDone");
+    const ws = hand.result?.winners ?? [];
+    setPendingWin(Object.fromEntries(ws.map((w) => [w.seat, w.amount])));
+    const delay = hand.result?.showdown ? 1400 : 500;
+    const t1 = setTimeout(() => { fly(ws.map((w) => ({ from: "pot", to: w.seat, amount: w.amount })), 1000); }, delay);
+    const t2 = setTimeout(() => setPendingWin({}), delay + 800);
     setRunLog((log) => [...log, recordHand(hand, decisions.current, names, models, startStacks.current, STAGES[stageIdx], roundNo)]);
     const youSeat = hand.seats.find((s) => s.id === PLAYER_ID);
     const busted = !youSeat || youSeat.stack === 0;
@@ -209,13 +233,13 @@ export function Arena() {
       return next;
     });
     // The table waits for the player to deal the next hand. Only busts and cleared tables move on by themselves.
-    if (!busted && !cleared) return;
+    if (!busted && !cleared) return () => { clearTimeout(t1); clearTimeout(t2); };
     const t = setTimeout(() => {
       if (busted) setPhase("runOver");
       else setPhase(bgTables.length ? (bgWinners.length ? "roundCleared" : "waitingBg") : stageIdx === STAGES.length - 1 ? "runOver" : "stageCleared");
     }, hand.result?.showdown ? 5200 : 2400);
-    return () => clearTimeout(t);
-  }, [hand, stageIdx, roundNo, names, models, bgTables, bgWinners, nextHand]);
+    return () => { clearTimeout(t); clearTimeout(t1); clearTimeout(t2); };
+  }, [hand, stageIdx, roundNo, names, models, bgTables, bgWinners, nextHand, fly]);
 
   const advance = useCallback(() => {
     if (phase === "stageCleared") startStage(stageIdx + 1, modelIds());
@@ -287,7 +311,7 @@ export function Arena() {
     const idx = hand ? hand.seats.findIndex((x) => x.id === o.id) : -1;
     return {
       id: o.id, name: o.name, model: o.model, persona: o.persona, mood: moodFor(o.id, s, statuses[o.id]?.tone),
-      stack: s?.stack ?? 0, bet: hand?.street === "done" ? 0 : s?.bet ?? 0, folded: s?.folded ?? false, allIn: s?.allIn ?? false, out: !s,
+      stack: (s?.stack ?? 0) - (pendingWin[o.id] ?? 0), bet: hand?.street === "done" ? 0 : s?.bet ?? 0, folded: s?.folded ?? false, allIn: s?.allIn ?? false, out: !s,
       hole: s && (revealed.has(o.id) || (hand?.street === "done" && hand.result?.showdown && !s.folded)) ? s.hole : null,
       status: thinking === o.id ? { text: "Thinking", tone: "think" } : statuses[o.id] ?? null,
       dealer: idx >= 0 && hand?.dealer === idx, turn: Boolean(hand && phase === "hand" && hand.street !== "done" && hand.toAct === idx), winner: winners.has(o.id),
@@ -306,6 +330,7 @@ export function Arena() {
       const label = w.length > 1 ? "Split pot" : first.seat === PLAYER_ID ? "You win" : `${names.get(first.seat)} wins`;
       return { label, value: w.reduce((t, x) => t + x.amount, 0), note: first.label ? `with ${first.label.toLowerCase()}` : "everyone else folded", tone: first.seat === PLAYER_ID ? ("win" as const) : ("lose" as const) };
     }
+    if (intro && phase === "hand") return { label: `Hand ${handNo}`, value: pot, note: `Stage ${stageIdx + 1}, ${stageN} ${stageN === 1 ? "opponent" : "opponents"}, blinds ${hand.sb}/${hand.bb}`, tone: undefined };
     return { label: "Pot", value: pot, note: hand.street === "preflop" ? "" : hand.street[0].toUpperCase() + hand.street.slice(1), tone: undefined };
   })();
 
@@ -321,7 +346,6 @@ export function Arena() {
 
   const banner = !hand ? null
     : phase === "stageCleared" ? { key: `stage-${stageIdx}`, title: `Stage ${stageIdx + 1} cleared`, sub: `${STAGES[stageIdx + 1]} opponents next`, big: true }
-    : phase === "hand" && handNo >= 1 ? { key: `hand-${stageIdx}-${roundNo}-${handNo}`, title: `Hand ${handNo}`, sub: `Stage ${stageIdx + 1}, ${stageN} ${stageN === 1 ? "opponent" : "opponents"}${hand.handNo === 1 ? ", blinds rise every 6 hands" : ""}` }
     : null;
 
   const presets = L ? [
@@ -434,12 +458,14 @@ export function Arena() {
       board={hand?.board ?? []}
       handNo={handNo}
       seats={seats}
-      you={youSeat ? { id: PLAYER_ID, name: "You", model: "you", persona: { aggression: 1, bluff: 0, patience: 0 }, mood: moodFor(PLAYER_ID, youSeat, statuses[PLAYER_ID]?.tone), stack: youSeat.stack, bet: hand?.street === "done" ? 0 : youSeat.bet, folded: youSeat.folded, allIn: youSeat.allIn, out: false, hole: null, status: statuses[PLAYER_ID] ?? null, dealer: hand?.dealer === youIdx, turn: yourTurn, winner: Boolean(youWon) } : null}
+      you={youSeat ? { id: PLAYER_ID, name: "You", model: "you", persona: { aggression: 1, bluff: 0, patience: 0 }, mood: moodFor(PLAYER_ID, youSeat, statuses[PLAYER_ID]?.tone), stack: youSeat.stack - (pendingWin[PLAYER_ID] ?? 0), bet: hand?.street === "done" ? 0 : youSeat.bet, folded: youSeat.folded, allIn: youSeat.allIn, out: false, hole: null, status: statuses[PLAYER_ID] ?? null, dealer: hand?.dealer === youIdx, turn: yourTurn, winner: Boolean(youWon) } : null}
       hero={youSeat ? { hole: youSeat.hole, folded: youSeat.folded, winner: Boolean(youWon), outcome: youSeat.folded ? "Folded" : hand?.street === "done" ? (youWon ? (youWon.label ?? "You win") : heroEval) : null } : null}
       turn={turn}
       highlight={highlight}
       reveal={done && hand?.result?.showdown && winSeat ? { seatId: winSeat.id, hole: winSeat.hole, heroWon: winSeat.id === PLAYER_ID } : null}
       banner={banner}
+      flights={flights}
+      thinkingSince={thinking ? thinkStart : null}
       actions={actions}
       leftLinks={leftLinks}
       floating={floating}

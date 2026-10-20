@@ -122,7 +122,7 @@ button.pill-lime:hover, a.pill-lime:hover { background: #ffffff; color: var(--ac
 
 /* pot / readout at the top center */
 .pot { position: absolute; left: 50%; top: 22px; transform: translateX(-50%); z-index: 10; display: flex; flex-direction: column; align-items: center; text-align: center; min-width: 320px; }
-.pot-label { display: inline-flex; align-items: center; gap: 6px; color: #b8c9c0; font-size: 13.5px; font-weight: 500; margin-bottom: 6px; transition: color 0.2s; }
+.pot-label { display: inline-flex; align-items: center; gap: 6px; color: #b8c9c0; font-size: 13.5px; font-weight: 500; margin-bottom: 6px; transition: color 0.2s; animation: labelIn 0.4s var(--ease-out); }
 .pot-label.win { color: var(--raise); }
 .pot-label.lose { color: var(--fold); }
 .pot-value { font-size: 58px; font-weight: 600; line-height: 1; letter-spacing: -0.02em; color: var(--text); animation: bump 0.24s var(--ease-spring); }
@@ -190,6 +190,24 @@ button.pill-lime:hover, a.pill-lime:hover { background: #ffffff; color: var(--ac
 .char.mood-fold, .char.mood-out, .char.mood-lose { filter: saturate(0.55); }
 .char.mood-lose .char-body { animation: slump 0.5s var(--ease-out) 1 forwards; }
 @keyframes slump { to { transform: translateY(3px) scale(0.985); } }
+
+/* chips in flight: a short snap from seat to pot, or pot to winner */
+.flights { position: absolute; inset: 0; z-index: 16; pointer-events: none; }
+.chip-fly { position: absolute; left: 0; top: 0; display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.16); backdrop-filter: blur(6px); color: #fff; font-size: 13.5px; font-weight: 500; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4); animation: chipFly 0.7s cubic-bezier(0.3, 0.9, 0.2, 1) both; }
+.chip-fly svg { width: 15px; height: 15px; }
+@keyframes chipFly {
+  0% { transform: translate(calc(var(--x0) - 50%), calc(var(--y0) - 50%)) scale(1); opacity: 0; }
+  12% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { transform: translate(calc(var(--x1) - 50%), calc(var(--y1) - 50%)) scale(0.7); opacity: 0; }
+}
+
+/* turn ring: steady for you, a sweep while Jev thinks (the ring empties over its time limit) */
+.turn-ring { position: absolute; inset: -6px; width: calc(100% + 12px); height: calc(100% + 12px); pointer-events: none; transform: rotate(-90deg); }
+.turn-ring circle { stroke-dasharray: 100; stroke-dashoffset: 0; opacity: 0.9; }
+.turn-ring.sweep circle { animation: sweep 9s linear forwards; }
+@keyframes sweep { to { stroke-dashoffset: 100; } }
+.seat.turn .avatar { box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55), 0 0 0 2px rgba(255, 255, 255, 0.06); }
 
 /* hand + stage banners on the felt */
 .banner { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%); z-index: 14; text-align: center; pointer-events: none; animation: bannerIn 2.2s var(--ease-out) both; }

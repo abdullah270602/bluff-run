@@ -20,6 +20,8 @@ while (Date.now() < deadline) {
   const next = page.getByRole("button", { name: /^(Next hand|Deal)/ });
   if (await next.count()) await next.first().click({ timeout: 800 }).catch(() => {});
   if (!showdown && (await page.locator(".seat-status.tone-win").count()) && (await page.locator(".seat-status.tone-plain:not(.empty)").count())) { await page.waitForTimeout(500); await page.screenshot({ path: "screenshots/showdown.png" }); showdown = true; }
+  if (await page.locator(".chip-fly").count()) await page.screenshot({ path: "screenshots/chips.png" }).catch(() => {});
+  if (await page.locator(".turn-ring.sweep").count()) await page.screenshot({ path: "screenshots/sweep.png" }).catch(() => {});
   if (!shot && (await handNo()) >= 3) { await page.screenshot({ path: "screenshots/play-mid.png" }); shot = true; }
   if (await page.locator(".results").count()) break;
   await page.waitForTimeout(150);
