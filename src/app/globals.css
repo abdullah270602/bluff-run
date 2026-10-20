@@ -422,14 +422,22 @@ button.pill-lime:hover, a.pill-lime:hover { background: #ffffff; color: var(--ac
 
 /* the Jevs at a casino table: seats on the rim, the hovered one's read on the felt */
 .jev-table-wrap { width: 100%; margin-top: 64px; padding: 54px 70px 64px; }
-.jev-table { position: relative; width: 100%; aspect-ratio: 2.25; border-radius: 50%; background: radial-gradient(ellipse 70% 80% at 50% 42%, #205546 0%, #184236 52%, #123327 100%); box-shadow: inset 0 0 0 11px #0b1a15, inset 0 0 0 13px rgba(255, 255, 255, 0.07), inset 0 0 60px rgba(0, 0, 0, 0.35), 0 34px 70px rgba(0, 0, 0, 0.5); }
-.jev-seat { --a: 270deg; position: absolute; left: calc(50% + 50% * cos(var(--a))); top: calc(50% + 50% * sin(var(--a))); transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 9px; padding: 6px; background: none; border: 0; color: var(--text); font: inherit; cursor: pointer; z-index: 2; }
+.jev-table { position: relative; width: 100%; aspect-ratio: 2.25; border-radius: 50%; padding: 14px; background: linear-gradient(180deg, #1a3f35 0%, #0d1f1a 22%, #07110e 100%); box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.18), inset 0 -2px 0 rgba(0, 0, 0, 0.6), 0 40px 80px rgba(0, 0, 0, 0.5), 0 10px 24px rgba(0, 0, 0, 0.35); }
+.jev-table::before { content: ""; position: absolute; inset: 14px; border-radius: 50%; background: radial-gradient(ellipse 68% 76% at 50% 40%, #215748 0%, #19453a 48%, #123427 100%); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05), inset 0 10px 40px rgba(0, 0, 0, 0.45), inset 0 -8px 30px rgba(0, 0, 0, 0.3); }
+.jev-table::after { content: ""; position: absolute; inset: 9.5% 7%; border-radius: 50%; border: 1px solid rgba(227, 207, 142, 0.14); pointer-events: none; }
+.jev-seat { --a: 270deg; --b: 270deg; position: absolute; left: calc(50% + 50% * cos(var(--a))); top: calc(50% + 50% * sin(var(--a))); transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 9px; padding: 6px; background: none; border: 0; color: var(--text); font: inherit; cursor: pointer; z-index: 2; }
 .jev-seat .avatar { width: 66px; height: 66px; box-shadow: 0 14px 28px rgba(0, 0, 0, 0.5), 0 0 0 2px rgba(255, 255, 255, 0.06); }
 .jev-seat span { font-size: 14px; font-weight: 500; }
 .jev-seat:hover .avatar, .jev-seat.active .avatar { transform: translateY(-5px); box-shadow: 0 20px 34px rgba(0, 0, 0, 0.55), 0 0 0 2px var(--gold); }
 .jev-seat:focus-visible { outline: none; } .jev-seat:focus-visible .avatar { box-shadow: 0 0 0 2px var(--gold), 0 0 0 5px rgba(227, 207, 142, 0.25); }
 .jev-you { position: absolute; left: 50%; top: 100%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 9px; padding: 6px; color: var(--text-3); font-size: 14px; font-weight: 500; }
 .jev-you i { display: block; width: 66px; height: 66px; border-radius: 50%; border: 2px dashed rgba(255, 255, 255, 0.18); background: rgba(6, 12, 10, 0.3); }
+.jev-cards { --b: 270deg; position: absolute; left: calc(50% + 50% * cos(var(--a)) - 74px * cos(var(--a))); top: calc(50% + 50% * sin(var(--a)) - 74px * sin(var(--a))); width: 44px; height: 32px; transform: translate(-50%, -50%) rotate(calc(var(--a) - 270deg)); pointer-events: none; transition: transform 0.35s var(--ease-out); --a: 270deg; }
+.jev-cards i { position: absolute; top: 0; width: 23px; height: 32px; border-radius: 4px; background: #ece7d8 repeating-linear-gradient(45deg, rgba(25, 61, 52, 0.55) 0 1.5px, transparent 1.5px 4.5px); background-clip: padding-box; border: 2.5px solid #f4f1e8; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5), 0 0 0 0.5px rgba(0, 0, 0, 0.35); transition: transform 0.35s var(--ease-out); }
+.jev-cards i:first-child { left: 2px; transform: rotate(-7deg); transform-origin: 50% 100%; } .jev-cards i:last-child { left: 19px; transform: rotate(7deg); transform-origin: 50% 100%; }
+.jev-cards.active { transform: translate(-50%, -50%) rotate(calc(var(--a) - 270deg)) translateY(-5px); } .jev-cards.active i:first-child { transform: rotate(-12deg); } .jev-cards.active i:last-child { transform: rotate(12deg); }
+.jev-cards-you { width: 52px; height: 38px; } .jev-cards-you i { width: 27px; height: 38px; } .jev-cards-you i:last-child { left: 23px; }
+.jev-button { position: absolute; left: calc(50% + 48px); top: calc(100% - 66px); transform: translate(-50%, -50%); width: 22px; height: 22px; border-radius: 50%; background: var(--ivory, #f4f1e8); color: #0b1310; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45), inset 0 0 0 1.5px rgba(0, 0, 0, 0.12); }
 .jev-plate { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(380px, 58%); display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
 .jev-plate h3 { font-size: 22px; font-weight: 600; letter-spacing: -0.015em; display: flex; flex-direction: column; gap: 2px; }
 .jev-plate h3 span { font-size: 13.5px; font-weight: 400; color: var(--text-3); }
@@ -472,7 +480,10 @@ button.pill-lime:hover, a.pill-lime:hover { background: #ffffff; color: var(--ac
   .results { grid-template-columns: 1fr; overflow-y: auto; }
   .results-left { border-right: 0; border-bottom: 1px solid var(--line); }
   .jev-table-wrap { padding: 44px 30px 54px; margin-top: 40px; }
-  .jev-table { aspect-ratio: 0.72; }
+  .jev-table { aspect-ratio: 0.72; padding: 10px; }
+  .jev-table::before { inset: 10px; }
+  .jev-table::after { inset: 7% 9.5%; }
+  .jev-cards, .jev-button { display: none; }
   .jev-seat { --a: var(--b); gap: 6px; }
   .jev-seat .avatar, .jev-you i { width: 52px; height: 52px; }
   .jev-seat span, .jev-you { font-size: 12.5px; }

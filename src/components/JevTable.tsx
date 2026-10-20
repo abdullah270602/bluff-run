@@ -8,9 +8,25 @@ import { STAGES } from "@/game/run";
 
 /** Seat order around the rim, left to right over the top of the table. */
 const SEATS: Archetype[] = ["rock", "station", "grinder", "plain", "hustler", "maniac", "clock"];
-/** Rim angles in degrees: desktop spreads the seats over the top, the phone wraps them around a taller oval. */
-const WIDE = [165, 200, 235, 270, 305, 340, 375];
-const TALL = [120, 170, 220, 270, 320, 370, 420];
+/**
+ * Eight chairs (seven Jevs and you) at equal distances along the rim. Equal angles on an oval bunch the
+ * side seats together, so the angles come from walking the perimeter instead. Starts at the bottom (your seat).
+ */
+function rimAngles(aspect: number, n = 8): number[] {
+  const steps = 2880, b = 1 / aspect, len: number[] = [0];
+  for (let i = 1; i <= steps; i++) {
+    const t0 = (Math.PI / 2) + ((i - 1) / steps) * 2 * Math.PI, t1 = (Math.PI / 2) + (i / steps) * 2 * Math.PI;
+    len.push(len[i - 1] + Math.hypot(Math.cos(t1) - Math.cos(t0), b * (Math.sin(t1) - Math.sin(t0))));
+  }
+  const total = len[steps];
+  return Array.from({ length: n }, (_, k) => {
+    const target = (k / n) * total;
+    let i = 0; while (len[i] < target) i++;
+    return 90 + (i / steps) * 360;
+  });
+}
+const WIDE = rimAngles(2.25).slice(1);
+const TALL = rimAngles(0.72).slice(1);
 
 /** The seven kinds of Jev at a casino table. Hover or tap a seat and its read appears on the felt. */
 export function JevTable() {
@@ -39,7 +55,12 @@ export function JevTable() {
             <span>{ARCHETYPES[a].label}</span>
           </button>
         ))}
+        {SEATS.map((a, i) => (
+          <div key={`cards-${a}`} className={`jev-cards ${shown === a ? "active" : ""}`} style={{ "--a": `${WIDE[i]}deg`, "--b": `${TALL[i]}deg` } as React.CSSProperties} aria-hidden="true"><i /><i /></div>
+        ))}
         <div className="jev-you" aria-hidden="true"><i /><span>You</span></div>
+        <div className="jev-cards jev-cards-you" style={{ "--a": "90deg", "--b": "90deg" } as React.CSSProperties} aria-hidden="true"><i /><i /></div>
+        <div className="jev-button num" aria-hidden="true">D</div>
         <div className="jev-plate" aria-live="polite">
           {shown && g ? (
             <>
