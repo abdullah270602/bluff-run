@@ -116,3 +116,15 @@ export function tally(votes: Vote[], allowed: Choice[]): { choice: Choice; count
   if (!allowed.includes(choice)) choice = allowed.includes("check_call") ? "check_call" : allowed[0];
   return { choice, counts, carriedBy: votes.filter((v) => groupOf(v.choice) === g).map((v) => v.member) };
 }
+
+/** The field guide on the landing page: how each archetype leans in the vote (fold, call, raise) and when it first joins. */
+export const GUIDE: Record<Archetype, { style: string; lean: [number, number, number]; mood: "idle" | "think" | "fold" | "raise" | "allin" }> = {
+  plain: { style: "No brief", lean: [1, 1.4, 1.75], mood: "idle" },
+  rock: { style: "Tight, passive", lean: [3, 2, 0.65], mood: "fold" },
+  station: { style: "Loose, passive", lean: [0.4, 4, 0.65], mood: "idle" },
+  grinder: { style: "Tight, aggressive", lean: [2, 0.6, 2.9], mood: "think" },
+  hustler: { style: "Loose, aggressive", lean: [0.8, 1, 3.7], mood: "raise" },
+  maniac: { style: "Wild", lean: [0.5, 1, 6], mood: "allin" },
+  clock: { style: "Balanced", lean: [1.2, 1.6, 1.7], mood: "think" },
+};
+export const firstStageIdx = (a: Archetype) => POOLS.findIndex((p) => p[a] > 0);

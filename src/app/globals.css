@@ -213,12 +213,6 @@ button.pill-lime:hover, a.pill-lime:hover { background: #ffffff; color: var(--ac
 .member-stat { text-align: right; font-size: 11.5px; color: var(--text-3); white-space: nowrap; }
 .member-stat strong { display: block; color: var(--text); font-weight: 500; font-size: 14px; }
 .results-kicker { font-size: 13px; color: var(--gold); margin-bottom: 8px; }
-.roster-how { color: var(--gold); display: block; margin-top: 4px; }
-.roster { grid-template-columns: repeat(7, 1fr); gap: 16px; }
-.roster .avatar-wrap { width: 52px; height: 52px; }
-.roster .avatar { width: 52px; height: 52px; }
-.roster h3 { font-size: 15px; }
-.roster p { font-size: 12.5px; }
 .site-foot a { color: var(--text-2); text-decoration: underline; text-underline-offset: 3px; }
 
 /* hand + stage banners on the felt */
@@ -415,14 +409,34 @@ button.pill-lime:hover, a.pill-lime:hover { background: #ffffff; color: var(--ac
 .loop-readout-label { font-size: 13.5px; font-weight: 500; color: #b8c9c0; margin-bottom: 6px; }
 .loop-big { font-size: clamp(56px, 7vw, 76px); font-weight: 600; line-height: 1; letter-spacing: -0.025em; margin-bottom: 14px; }
 .loop-caption { font-size: 15.5px; line-height: 1.55; color: var(--text-2); max-width: 440px; margin-bottom: 18px; }
-.notes { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 36px; padding-top: 40px; border-top: 1px solid rgba(255, 255, 255, 0.08); text-align: left; }
-.notes h3 { font-size: 17px; font-weight: 500; margin-bottom: 6px; }
-.notes p { font-size: 14.5px; line-height: 1.55; color: var(--text-2); }
-.roster { width: 100%; display: grid; grid-template-columns: repeat(7, 1fr); gap: 16px; padding-top: 40px; margin-top: 40px; border-top: 1px solid rgba(255, 255, 255, 0.08); text-align: left; }
-.roster li { display: flex; flex-direction: column; gap: 8px; }
-.roster .avatar-wrap { width: 48px; height: 48px; margin: 0 0 4px; }
-.roster h3 { font-size: 16px; font-weight: 500; }
-.roster p { font-size: 13.5px; line-height: 1.5; color: var(--text-2); }
+/* shown, not told: two real UI fragments with a caption */
+.shown { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; text-align: left; }
+.shown figure { margin: 0; display: grid; grid-template-rows: 150px auto; gap: 18px; padding: 22px 24px 24px; border-radius: 22px; background: rgba(6, 12, 10, 0.42); border: 1px solid rgba(255, 255, 255, 0.05); }
+.shown figure > div { display: flex; align-items: center; justify-content: center; }
+.shown .shown-strip { position: static; width: 232px; margin: 0 auto; align-items: stretch; animation: none; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); }
+.shown-members { flex-direction: column; gap: 6px; width: 320px; max-width: 100%; margin: 0 auto; }
+.shown-members .member { width: 100%; background: rgba(8, 13, 11, 0.82); border: 1px solid rgba(255, 255, 255, 0.06); }
+.shown h3 { font-size: 17px; font-weight: 500; margin-bottom: 5px; }
+.shown p { font-size: 14.5px; line-height: 1.55; color: var(--text-2); max-width: 46ch; }
+
+/* the field guide: one row per archetype, scanned like a table */
+.guide { width: 100%; margin-top: 72px; text-align: left; }
+.guide-head { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: end; margin-bottom: 22px; }
+.guide-head h3 { font-size: clamp(22px, 2.6vw, 28px); font-weight: 600; letter-spacing: -0.02em; }
+.guide-head p { font-size: 15px; line-height: 1.55; color: var(--text-2); max-width: 48ch; justify-self: end; }
+.guide-list { border-top: 1px solid rgba(255, 255, 255, 0.1); }
+.guide-list li { display: grid; grid-template-columns: 44px 148px 150px minmax(0, 1fr) minmax(0, 1fr) 64px; gap: 22px; align-items: center; padding: 16px 10px 16px 6px; margin: 0 -6px; border-bottom: 1px solid rgba(255, 255, 255, 0.07); border-radius: 14px; transition: background 0.25s ease; }
+.guide-list li:hover { background: rgba(255, 255, 255, 0.035); }
+.guide-list .avatar { width: 44px; height: 44px; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.05); }
+.guide-name h4 { font-size: 16px; font-weight: 500; line-height: 1.2; }
+.guide-name span { display: block; font-size: 13px; color: var(--text-3); margin-top: 3px; }
+.guide-lean { display: flex; flex-direction: column; gap: 4px; }
+.guide-lean .delib-row { grid-template-columns: 38px 1fr; gap: 8px; font-size: 11.5px; color: var(--text-3); }
+.guide-lean .delib-bar { height: 5px; }
+.guide-lean .delib-row.winner { color: var(--text-2); }
+.guide-read { font-size: 13.5px; line-height: 1.5; color: var(--text-2); }
+.guide-how { font-size: 13.5px; line-height: 1.5; color: var(--gold); }
+.guide-from { font-size: 12.5px; color: var(--text-3); text-align: right; white-space: nowrap; }
 .site-foot { max-width: 1180px; margin: 72px auto 0; padding-top: 24px; border-top: 1px solid rgba(255, 255, 255, 0.08); display: flex; align-items: center; justify-content: space-between; color: var(--text-3); font-size: 13.5px; }
 
 /* share page */
@@ -435,8 +449,18 @@ button.pill-lime:hover, a.pill-lime:hover { background: #ffffff; color: var(--ac
   .page-shell { padding: 20px 16px 64px; }
   .results { grid-template-columns: 1fr; overflow-y: auto; }
   .results-left { border-right: 0; border-bottom: 1px solid var(--line); }
-  .notes { grid-template-columns: 1fr; gap: 24px; }
-  .roster { grid-template-columns: repeat(2, 1fr); gap: 18px; }
+  .shown { grid-template-columns: 1fr; }
+  .guide { margin-top: 48px; }
+  .guide-head { grid-template-columns: 1fr; gap: 8px; }
+  .guide-head p { justify-self: start; }
+  .guide-list li { grid-template-columns: 44px 1fr auto; grid-template-areas: "avatar name from" "lean lean lean" "read read read" "how how how"; gap: 10px 14px; padding: 16px 0; margin: 0; border-radius: 0; }
+  .guide-list li:hover { background: none; }
+  .guide-list .avatar { grid-area: avatar; }
+  .guide-name { grid-area: name; }
+  .guide-from { grid-area: from; align-self: start; }
+  .guide-lean { grid-area: lean; max-width: 220px; margin-top: 4px; }
+  .guide-read { grid-area: read; }
+  .guide-how { grid-area: how; }
   .council-grid { grid-template-columns: 1fr; }
   .deliberation { position: static; width: 100%; max-width: 320px; margin: 4px auto 0; }
 }
