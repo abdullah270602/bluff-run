@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Bot } from "./Bot";
+import { Mark } from "./Logo";
 import { ARCHETYPES, firstStageIdx, GUIDE, type Archetype } from "@/game/council";
 import { STAGES } from "@/game/run";
 
@@ -56,10 +57,10 @@ export function JevTable() {
           </button>
         ))}
         {SEATS.map((a, i) => (
-          <div key={`cards-${a}`} className={`jev-cards ${shown === a ? "active" : ""}`} style={{ "--a": `${WIDE[i]}deg`, "--b": `${TALL[i]}deg` } as React.CSSProperties} aria-hidden="true"><i /><i /></div>
+          <div key={`cards-${a}`} className={`jev-cards ${shown === a ? "active" : ""}`} style={{ "--a": `${WIDE[i]}deg`, "--b": `${TALL[i]}deg` } as React.CSSProperties} aria-hidden="true"><i><Mark size={10} /></i><i><Mark size={10} /></i></div>
         ))}
         <div className="jev-you" aria-hidden="true"><i /><span>You</span></div>
-        <div className="jev-cards jev-cards-you" style={{ "--a": "90deg", "--b": "90deg" } as React.CSSProperties} aria-hidden="true"><i /><i /></div>
+        <div className="jev-cards jev-cards-you" style={{ "--a": "90deg", "--b": "90deg" } as React.CSSProperties} aria-hidden="true"><i><Mark size={10} /></i><i><Mark size={10} /></i></div>
         <div className="jev-button num" aria-hidden="true">D</div>
         <div className="jev-plate" aria-live="polite">
           {shown && g ? (
