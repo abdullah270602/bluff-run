@@ -11,9 +11,9 @@ import { encodeRun, type RunStats } from "@/game/share";
 
 const P = (s: string) => parseCard(s);
 const demoSeats: SeatVM[] = [
-  { id: "jev", name: "Jev", model: "jev", persona: { aggression: 0.58, bluff: 0.14, patience: 0.4 }, mood: "idle", stack: 1840, bet: 60, folded: false, allIn: false, out: false, hole: null, status: { text: "Called", tone: "call" }, dealer: false, turn: false, winner: false },
+  { id: "jev", name: "Jev", model: "jev", persona: { aggression: 0.58, bluff: 0.14, patience: 0.4 }, mood: "idle", variant: 2, stack: 1840, bet: 60, folded: false, allIn: false, out: false, hole: null, status: { text: "Called", tone: "call" }, dealer: false, turn: false, winner: false },
 ];
-const demoYou: SeatVM = { id: "you", name: "You", model: "you", persona: { aggression: 1, bluff: 0, patience: 0 }, mood: "idle", stack: 1940, bet: 60, folded: false, allIn: false, out: false, hole: null, status: null, dealer: true, turn: true, winner: false };
+const demoYou: SeatVM = { id: "you", name: "You", model: "you", persona: { aggression: 1, bluff: 0, patience: 0 }, mood: "idle", variant: 4, stack: 1940, bet: 60, folded: false, allIn: false, out: false, hole: null, status: null, dealer: true, turn: true, winner: false };
 
 function rounds(n: number) {
   const rows: { seats: number; others: number; tables: number }[] = [];

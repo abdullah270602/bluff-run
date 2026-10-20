@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { timedOutDecision, type Decision } from "@/brains/types";
 import { bestFive, evaluate } from "@/engine/evaluate";
-import type { Mood } from "./Character";
+import type { Mood } from "./Bot";
 import { act, dealHand, legal, liveSeats, potSize, type Action, type HandState } from "@/engine/hand";
 import { blindsFor, buildView, type Opponent, PLAYER_ID, resolveChoice, rosterForStage, roundsForStage, splitRound, START_STACK, STAGES } from "@/game/run";
 import { recordHand, type HandRecord } from "@/game/review";
@@ -49,6 +49,7 @@ export function Arena() {
   const [thinking, setThinking] = useState<string | null>(null);
   const [thinkStart, setThinkStart] = useState(0);
   const [intro, setIntro] = useState(false);
+  const [youVariant] = useState(() => [0, 4, 3, 1][Math.floor(Math.random() * 4)]);
   const [statuses, setStatuses] = useState<Record<string, Status>>({});
   const [raiseOpen, setRaiseOpen] = useState(false);
   const [raiseTo, setRaiseTo] = useState(0);
@@ -310,7 +311,7 @@ export function Arena() {
     const s = hand?.seats.find((x) => x.id === o.id);
     const idx = hand ? hand.seats.findIndex((x) => x.id === o.id) : -1;
     return {
-      id: o.id, name: o.name, model: o.model, persona: o.persona, mood: moodFor(o.id, s, statuses[o.id]?.tone),
+      id: o.id, name: o.name, model: o.model, persona: o.persona, mood: moodFor(o.id, s, statuses[o.id]?.tone), variant: Number(o.id.split("-").pop() ?? 0) % 8,
       stack: (s?.stack ?? 0) - (pendingWin[o.id] ?? 0), bet: hand?.street === "done" ? 0 : s?.bet ?? 0, folded: s?.folded ?? false, allIn: s?.allIn ?? false, out: !s,
       hole: s && (revealed.has(o.id) || (hand?.street === "done" && hand.result?.showdown && !s.folded)) ? s.hole : null,
       status: thinking === o.id ? { text: "Thinking", tone: "think" } : statuses[o.id] ?? null,
@@ -458,7 +459,7 @@ export function Arena() {
       board={hand?.board ?? []}
       handNo={handNo}
       seats={seats}
-      you={youSeat ? { id: PLAYER_ID, name: "You", model: "you", persona: { aggression: 1, bluff: 0, patience: 0 }, mood: moodFor(PLAYER_ID, youSeat, statuses[PLAYER_ID]?.tone), stack: youSeat.stack - (pendingWin[PLAYER_ID] ?? 0), bet: hand?.street === "done" ? 0 : youSeat.bet, folded: youSeat.folded, allIn: youSeat.allIn, out: false, hole: null, status: statuses[PLAYER_ID] ?? null, dealer: hand?.dealer === youIdx, turn: yourTurn, winner: Boolean(youWon) } : null}
+      you={youSeat ? { id: PLAYER_ID, name: "You", model: "you", persona: { aggression: 1, bluff: 0, patience: 0 }, mood: moodFor(PLAYER_ID, youSeat, statuses[PLAYER_ID]?.tone), variant: youVariant, stack: youSeat.stack - (pendingWin[PLAYER_ID] ?? 0), bet: hand?.street === "done" ? 0 : youSeat.bet, folded: youSeat.folded, allIn: youSeat.allIn, out: false, hole: null, status: statuses[PLAYER_ID] ?? null, dealer: hand?.dealer === youIdx, turn: yourTurn, winner: Boolean(youWon) } : null}
       hero={youSeat ? { hole: youSeat.hole, folded: youSeat.folded, winner: Boolean(youWon), outcome: youSeat.folded ? "Folded" : hand?.street === "done" ? (youWon ? (youWon.label ?? "You win") : heroEval) : null } : null}
       turn={turn}
       highlight={highlight}

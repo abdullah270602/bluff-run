@@ -1,14 +1,14 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { Persona } from "@/brains/types";
 import type { Card } from "@/engine/cards";
-import { Character, type Mood } from "./Character";
+import { Bot, type Mood } from "./Bot";
 import { Mark } from "./Logo";
 import { CardBack, CardFace } from "./PlayingCard";
 import { WindowFit } from "./WindowFit";
 
 export type Tone = "call" | "fold" | "raise" | "win" | "think" | "plain";
 export interface SeatVM {
-  id: string; name: string; model: string; persona: Persona; mood: Mood;
+  id: string; name: string; model: string; persona: Persona; mood: Mood; variant: number;
   stack: number; bet: number; folded: boolean; allIn: boolean; out: boolean;
   hole: Card[] | null; status: { text: string; tone: Tone } | null;
   dealer: boolean; turn: boolean; winner: boolean;
@@ -49,10 +49,10 @@ type Pos = { side: "l" | "r"; x: number; y: number };
 const LARGE: { you: Pos; opps: Pos[] } = { you: { side: "r", x: 118, y: 150 }, opps: [{ side: "l", x: 118, y: 150 }] };
 const ONE_COL: { you: Pos; opps: Pos[] } = { you: { side: "r", x: 58, y: 100 }, opps: [{ side: "l", x: 58, y: 100 }, { side: "r", x: 58, y: 296 }, { side: "l", x: 58, y: 296 }] };
 const WIDE: { you: Pos; opps: Pos[] } = {
-  you: { side: "r", x: 36, y: 78 },
+  you: { side: "r", x: 36, y: 96 },
   opps: [
-    { side: "l", x: 36, y: 78 }, { side: "r", x: 186, y: 78 }, { side: "l", x: 186, y: 78 }, { side: "r", x: 36, y: 282 },
-    { side: "l", x: 36, y: 282 }, { side: "r", x: 186, y: 282 }, { side: "l", x: 186, y: 282 }, { side: "l", x: 336, y: 78 }, { side: "r", x: 336, y: 78 },
+    { side: "l", x: 36, y: 96 }, { side: "r", x: 186, y: 80 }, { side: "l", x: 186, y: 80 }, { side: "r", x: 36, y: 296 },
+    { side: "l", x: 36, y: 296 }, { side: "r", x: 186, y: 282 }, { side: "l", x: 186, y: 282 }, { side: "l", x: 336, y: 66 }, { side: "r", x: 336, y: 66 },
   ],
 };
 
@@ -76,7 +76,7 @@ export function Seat({ s, compact, pos, you = false, highlight, hideCards = fals
     <div className={`seat ${pos.side === "l" ? "seat-left" : "seat-right"} ${compact ? "compact" : ""} ${you ? "seat-you" : ""} ${s.out ? "out" : ""} ${s.turn ? "turn" : ""} ${s.winner ? "winner" : ""} ${hideCards ? "hidden-cards" : ""}`} style={style}>
       <div className={`seat-status tone-${s.status?.tone ?? "plain"} ${s.status ? "" : "empty"}`} key={s.status?.text ?? ""}>{s.status?.text ?? " "}</div>
       <div className="avatar-wrap">
-        <div className="avatar"><Character id={s.id} model={s.model} mood={s.mood} /></div>
+        <div className="avatar"><Bot id={s.id} variant={s.variant} light={you} mood={s.mood} /></div>
         {s.turn && (
           <svg className={`turn-ring ${s.mood === "think" ? "sweep" : ""}`} viewBox="0 0 120 120" aria-hidden="true">
             <circle cx="60" cy="60" r="57" fill="none" stroke="var(--gold)" strokeWidth="3" strokeLinecap="round" pathLength={100} />
@@ -197,7 +197,7 @@ export function TableWindow(p: WindowProps) {
         })()}
         {p.flights && p.flights.length > 0 && (
           <div className="flights" aria-hidden="true">
-            {p.flights.map((f) => {
+            {p.flights.map((f, fi) => {
               const at = (key: string): [number, number] => {
                 if (key === "pot") return [590, 104];
                 if (key === p.you?.id) { const yp = layout.you; const w = compact ? 132 : 150; return [1180 - yp.x - w / 2, yp.y + (compact ? 120 : 160)]; }
@@ -208,8 +208,8 @@ export function TableWindow(p: WindowProps) {
               };
               const [x0, y0] = at(f.from), [x1, y1] = at(f.to);
               return (
-                <div key={f.id} className="chip-fly num" style={{ "--x0": `${x0}px`, "--y0": `${y0}px`, "--x1": `${x1}px`, "--y1": `${y1}px` } as CSSProperties}>
-                  <ChipIcon />{f.amount.toLocaleString()}
+                <div key={f.id} className="chip-fly num" style={{ "--x0": `${x0}px`, "--y0": `${y0}px`, "--x1": `${x1}px`, "--y1": `${y1}px`, "--delay": `${fi * 0.08}s` } as CSSProperties}>
+                  <span><ChipIcon />{f.amount.toLocaleString()}</span>
                 </div>
               );
             })}
