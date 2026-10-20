@@ -321,7 +321,7 @@ export function Arena() {
 
   const banner = !hand ? null
     : phase === "stageCleared" ? { key: `stage-${stageIdx}`, title: `Stage ${stageIdx + 1} cleared`, sub: `${STAGES[stageIdx + 1]} opponents next`, big: true }
-    : phase === "hand" && handNo >= 1 ? { key: `hand-${stageIdx}-${roundNo}-${handNo}`, title: `Hand ${handNo}`, sub: `Stage ${stageIdx + 1}, ${stageN} ${stageN === 1 ? "opponent" : "opponents"}${hand.handNo === 1 ? ", blinds rise every 8 hands" : ""}` }
+    : phase === "hand" && handNo >= 1 ? { key: `hand-${stageIdx}-${roundNo}-${handNo}`, title: `Hand ${handNo}`, sub: `Stage ${stageIdx + 1}, ${stageN} ${stageN === 1 ? "opponent" : "opponents"}${hand.handNo === 1 ? ", blinds rise every 6 hands" : ""}` }
     : null;
 
   const presets = L ? [

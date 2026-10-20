@@ -237,7 +237,8 @@ button.pill-lime:hover, a.pill-lime:hover { background: #ffffff; color: var(--ac
 .seat-name { font-size: 21px; font-weight: 500; letter-spacing: -0.01em; }
 .badge { display: inline-flex; align-items: center; justify-content: center; height: 20px; min-width: 26px; padding: 0 7px; border-radius: 999px; font-size: 11.5px; font-weight: 700; }
 .badge-d { background: #fff; color: #0c1210; }
-.seat-stack { display: inline-flex; align-items: center; gap: 5px; color: #9cb0a6; font-size: 14px; font-weight: 500; margin-bottom: 10px; }
+.seat-meta { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.seat-stack { display: inline-flex; align-items: center; gap: 5px; color: #9cb0a6; font-size: 14px; font-weight: 500; }
 .seat-stack svg { width: 13px; height: 13px; }
 .bet-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.13); color: #fff; font-size: 13.5px; font-weight: 500; backdrop-filter: blur(6px); transition: opacity 0.2s, transform 0.22s var(--ease-spring); }
 .bet-pill.empty { opacity: 0; }
@@ -245,10 +246,12 @@ button.pill-lime:hover, a.pill-lime:hover { background: #ffffff; color: var(--ac
 
 /* compact seats for 3+ opponents */
 .seat.compact { width: 132px; }
-.seat.compact .avatar-wrap { width: 64px; height: 64px; margin-bottom: 8px; }
-.seat.compact .seat-status { font-size: 12px; padding: 3px 11px; margin-bottom: 8px; min-height: 24px; }
+.seat.compact .avatar-wrap { width: 64px; height: 64px; margin-bottom: 6px; }
+.seat.compact .seat-status { font-size: 12px; padding: 3px 11px; margin-bottom: 6px; min-height: 24px; }
 .seat.compact .seat-name { font-size: 15.5px; }
-.seat.compact .seat-stack { font-size: 13px; margin-bottom: 6px; }
+.seat.compact .seat-meta { flex-direction: row; gap: 8px; }
+.seat.compact .seat-stack { font-size: 13px; }
+.seat.compact .bet-pill.empty { display: none; }
 .seat.compact .mini-cards { width: 44px; height: 40px; bottom: -8px; }
 .seat.compact .mini-card { width: 27px; height: 36px; }
 .seat.compact .mini-card .card-rank { font-size: 10px; }

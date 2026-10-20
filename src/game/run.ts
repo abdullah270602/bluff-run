@@ -3,9 +3,9 @@ import { cardStr } from "@/engine/cards";
 import { act, dealHand, legal, liveSeats, potSize, type Action, type HandState } from "@/engine/hand";
 
 export const STAGES = [1, 2, 4, 8, 16, 32, 64, 100];
-export const START_STACK = 2000;
-export const BLIND_LEVELS: [number, number][] = [[10, 20], [15, 30], [25, 50], [50, 100], [75, 150], [100, 200], [150, 300], [250, 500], [400, 800], [600, 1200], [1000, 2000]];
-export const HANDS_PER_LEVEL = 8;
+export const START_STACK = 500;
+export const BLIND_LEVELS: [number, number][] = [[10, 20], [15, 30], [25, 50], [40, 80], [60, 120], [100, 200], [150, 300], [250, 500]];
+export const HANDS_PER_LEVEL = 6;
 export const TABLE_MAX_OPPONENTS = 8; // player + 8 = 9 seats
 export const SIM_TABLE_SIZE = 9;
 export const PLAYER_ID = "you";

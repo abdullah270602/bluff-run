@@ -28,7 +28,7 @@ function rounds(n: number) {
 
 function caption(n: number) {
   const r = rounds(n);
-  if (n === 1) return "One table. You and Jev, heads-up, 2,000 chips each. Take the last chip to move up.";
+  if (n === 1) return "One table. You and Jev, heads-up, 500 chips each with the blinds climbing every six hands. Take the last chip to move up.";
   if (r.length === 1) return `One table, you and ${n} Jevs. Each one plays its own style. Take every chip to move up.`;
   return `${r.length} rounds. You and ${r[0].seats} at your table, ${r[0].others} more on ${r[0].tables} other ${r[0].tables === 1 ? "table" : "tables"} that Jev plays at the same time. Their winners come back for you.`;
 }
@@ -93,7 +93,7 @@ export default function Landing() {
         </div>
         <div className="notes">
           <div><h3>Real decisions</h3><p>Jev is TypeSafe AI's decision model. It sees the same table you do, weighs fold, call and raise, and plays from those odds. After the run, open any hand and see what it was thinking.</p></div>
-          <div><h3>The doubling loop</h3><p>1, 2, 4, 8, 16, 32, 64, then 100. Stacks reset each stage, blinds rise every eight hands, and one bust ends the run.</p></div>
+          <div><h3>The doubling loop</h3><p>1, 2, 4, 8, 16, 32, 64, then 100. Stacks reset to 500 each stage, blinds rise every six hands, and one bust ends the run.</p></div>
           <div><h3>Past eight, a shootout</h3><p>A table seats nine. Larger fields split into tables that Jev plays while you play yours, and the winners come back to face you.</p></div>
         </div>
       </section>

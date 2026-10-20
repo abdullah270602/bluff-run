@@ -8,7 +8,7 @@ No-limit Texas Hold'em against a field that doubles every time you clear the tab
 1, 2, 4, 8, 16, 32, 64, 100
 ```
 
-Start heads-up against Jev with 2,000 chips each and 10/20 blinds that rise every 8 hands. Take every chip and the field doubles. Lose your stack once and the run ends.
+Start heads-up against Jev with 500 chips each and 10/20 blinds that rise every 6 hands. Take every chip and the field doubles. Lose your stack once and the run ends.
 
 ## How it works
 

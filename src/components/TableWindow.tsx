@@ -43,12 +43,12 @@ export interface WindowProps {
 type Pos = { side: "l" | "r"; x: number; y: number };
 // You always take the first right-hand slot; opponents fill the rest, left side first.
 const LARGE: { you: Pos; opps: Pos[] } = { you: { side: "r", x: 118, y: 150 }, opps: [{ side: "l", x: 118, y: 150 }] };
-const ONE_COL: { you: Pos; opps: Pos[] } = { you: { side: "r", x: 58, y: 96 }, opps: [{ side: "l", x: 58, y: 96 }, { side: "l", x: 58, y: 300 }, { side: "r", x: 58, y: 300 }] };
+const ONE_COL: { you: Pos; opps: Pos[] } = { you: { side: "r", x: 58, y: 100 }, opps: [{ side: "l", x: 58, y: 100 }, { side: "r", x: 58, y: 296 }, { side: "l", x: 58, y: 296 }] };
 const WIDE: { you: Pos; opps: Pos[] } = {
-  you: { side: "r", x: 36, y: 96 },
+  you: { side: "r", x: 36, y: 78 },
   opps: [
-    { side: "l", x: 36, y: 96 }, { side: "l", x: 186, y: 96 }, { side: "l", x: 336, y: 96 }, { side: "r", x: 186, y: 96 }, { side: "r", x: 336, y: 96 },
-    { side: "l", x: 36, y: 300 }, { side: "l", x: 186, y: 300 }, { side: "r", x: 36, y: 300 }, { side: "r", x: 186, y: 300 },
+    { side: "l", x: 36, y: 78 }, { side: "r", x: 186, y: 78 }, { side: "l", x: 186, y: 78 }, { side: "r", x: 36, y: 282 },
+    { side: "l", x: 36, y: 282 }, { side: "r", x: 186, y: 282 }, { side: "l", x: 186, y: 282 }, { side: "l", x: 336, y: 78 }, { side: "r", x: 336, y: 78 },
   ],
 };
 
@@ -85,8 +85,10 @@ export function Seat({ s, compact, pos, you = false, highlight, hideCards = fals
         <span className="seat-name">{s.name}</span>
         {s.dealer && !s.out && <span className="badge badge-d">D</span>}
       </div>
-      <div className="seat-stack num"><StackIcon />{s.out ? "Out" : s.allIn ? "All in" : s.stack.toLocaleString()}</div>
-      <div className={`bet-pill num ${s.bet > 0 ? "" : "empty"}`}><ChipIcon />{s.bet.toLocaleString()}</div>
+      <div className="seat-meta">
+        <div className="seat-stack num"><StackIcon />{s.out ? "Out" : s.allIn ? "All in" : s.stack.toLocaleString()}</div>
+        <div className={`bet-pill num ${s.bet > 0 ? "" : "empty"}`}><ChipIcon />{s.bet.toLocaleString()}</div>
+      </div>
     </div>
   );
 }
