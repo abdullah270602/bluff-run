@@ -10,7 +10,7 @@ page.on("pageerror", (e) => errors.push(String(e)));
 page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
 
 await page.goto(base + "/play", { waitUntil: "networkidle" });
-const handNo = async () => Number((await page.locator(".topbar-center").textContent())?.match(/hand (\d+)/i)?.[1] || 0);
+const handNo = async () => Number((await page.locator(".stage-ind").getAttribute("aria-label").catch(() => ""))?.match(/hand (\d+)/i)?.[1] || 0);
 const start = await handNo();
 const deadline = Date.now() + 75_000;
 let clicks = 0, shot = false, showdown = false;

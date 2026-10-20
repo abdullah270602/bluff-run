@@ -15,7 +15,7 @@ export interface SeatVM {
 }
 export interface HeroVM { hole: Card[]; folded: boolean; outcome: string | null; winner: boolean }
 export interface WindowProps {
-  stage: { n: number; hand: number; round?: string };
+  stage: { n: number; hand: number; cleared: number; round?: string };
   counter: { n: number; name: string };
   blinds: string;
   pot: number;
@@ -91,6 +91,22 @@ export function Seat({ s, compact, pos, you = false, highlight, hideCards = fals
   );
 }
 
+/** Digits that roll into place when the value changes. */
+function Odometer({ value }: { value: number }) {
+  const digits = String(Math.max(0, value)).split("");
+  return (
+    <span className="odo" aria-hidden="true">
+      {digits.map((d, i) => (
+        <span className="odo-col" key={digits.length - i}>
+          <span className="odo-strip" style={{ transform: `translateY(-${Number(d) * 10}%)` }}>
+            {Array.from({ length: 10 }, (_, k) => <span key={k}>{k}</span>)}
+          </span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
 export function TableWindow(p: WindowProps) {
   const n = p.seats.length;
   const layout = n <= 1 ? LARGE : n <= 3 ? ONE_COL : WIDE;
@@ -105,10 +121,13 @@ export function TableWindow(p: WindowProps) {
           <a href="/" className="brand" aria-label="Bluff Run home"><Mark color="var(--accent)" />Bluff Run</a>
         </div>
         <div className="topbar-center">
-          <div className="stage-pill num" key={`${p.stage.n}-${p.stage.hand}`}>
-            <span className="stage-badge">Stage {p.stage.n}</span>
-            {p.stage.round && <><span>{p.stage.round}</span><span className="sep">·</span></>}
-            <span>Hand {p.stage.hand}</span>
+          <div className="stage-ind num" aria-label={`Stage ${p.stage.n}, hand ${p.stage.hand}`}>
+            <span className="rungs" aria-hidden="true">
+              {Array.from({ length: 8 }, (_, i) => <i key={i} className={i < p.stage.cleared ? "done" : i === p.stage.n - 1 ? "now" : ""} />)}
+            </span>
+            <span className="stage-txt">Stage {p.stage.n}{p.stage.round ? `, ${p.stage.round.toLowerCase()}` : ""}</span>
+            <span className="hair" aria-hidden="true" />
+            <span className="stage-txt">Hand <Odometer value={p.stage.hand} /></span>
           </div>
         </div>
         <div className="topbar-right">
@@ -143,19 +162,22 @@ export function TableWindow(p: WindowProps) {
         </div>
 
         {p.hero && (
-          <div className={`hero-hand ${p.hero.folded ? "dim" : ""} ${p.reveal ? (p.reveal.heroWon ? "won" : "lost") : ""}`} key={`hero-${p.handNo}`}>
-            <div className={`hero-outcome ${p.hero.outcome ? "" : "empty"} ${p.hero.winner ? "tone-win" : ""}`}>{p.hero.outcome ?? " "}</div>
+          <div className={`hero-hand ${p.hero.folded ? "dim" : ""} ${p.reveal ? (p.reveal.heroWon ? "away" : "lost") : ""}`} key={`hero-${p.handNo}`}>
+            <div className={`hero-outcome ${p.hero.outcome && !p.reveal ? "" : "empty"} ${p.hero.winner ? "tone-win" : ""}`}>{p.hero.outcome ?? " "}</div>
             <div className={`hero-card hero-card-l ${hl && !hl.has(p.hero.hole[0]) ? "dim" : ""}`}><CardFace card={p.hero.hole[0]} /></div>
             <div className={`hero-card hero-card-r ${hl && !hl.has(p.hero.hole[1]) ? "dim" : ""}`}><CardFace card={p.hero.hole[1]} /></div>
           </div>
         )}
 
-        {p.reveal && !p.reveal.heroWon && (() => {
-          const i = p.seats.findIndex((s) => s.id === p.reveal!.seatId);
-          const pos = layout.opps[i] ?? layout.opps[0];
-          const seatW = compact ? 132 : 150;
-          const cx = pos.side === "l" ? pos.x + seatW / 2 : 1180 - pos.x - seatW / 2;
-          const cy = pos.y + (compact ? 70 : 100);
+        {p.reveal && (() => {
+          let cx = 590, cy = 560;
+          if (!p.reveal.heroWon) {
+            const i = p.seats.findIndex((s) => s.id === p.reveal!.seatId);
+            const pos = layout.opps[i] ?? layout.opps[0];
+            const seatW = compact ? 132 : 150;
+            cx = pos.side === "l" ? pos.x + seatW / 2 : 1180 - pos.x - seatW / 2;
+            cy = pos.y + (compact ? 70 : 100);
+          }
           return (
             <div className="reveal" style={{ "--fx": `${cx - 590}px`, "--fy": `${cy - 372 - 47}px` } as CSSProperties}>
               {p.reveal.hole.map((card) => <div key={card} className="slot"><CardFace card={card} className={hl && hl.has(card) ? "win" : ""} dim={Boolean(hl && !hl.has(card))} /></div>)}

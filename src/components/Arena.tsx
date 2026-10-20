@@ -208,11 +208,12 @@ export function Arena() {
       if (busted || next.won) saveBestRun(next);
       return next;
     });
+    // The table waits for the player to deal the next hand. Only busts and cleared tables move on by themselves.
+    if (!busted && !cleared) return;
     const t = setTimeout(() => {
       if (busted) setPhase("runOver");
-      else if (cleared) setPhase(bgTables.length ? (bgWinners.length ? "roundCleared" : "waitingBg") : stageIdx === STAGES.length - 1 ? "runOver" : "stageCleared");
-      else nextHand();
-    }, hand.result?.showdown ? 6200 : 2400);
+      else setPhase(bgTables.length ? (bgWinners.length ? "roundCleared" : "waitingBg") : stageIdx === STAGES.length - 1 ? "runOver" : "stageCleared");
+    }, hand.result?.showdown ? 5200 : 2400);
     return () => clearTimeout(t);
   }, [hand, stageIdx, roundNo, names, models, bgTables, bgWinners, nextHand]);
 
@@ -423,7 +424,7 @@ export function Arena() {
 
   return (
     <TableWindow
-      stage={{ n: stageIdx + 1, hand: handNo, round: totalRounds > 1 ? `Round ${roundNo} of ${totalRounds}` : undefined }}
+      stage={{ n: stageIdx + 1, hand: handNo, cleared: stats.cleared, round: totalRounds > 1 ? `Round ${roundNo} of ${totalRounds}` : undefined }}
       counter={{ n: stageN, name: "Jev" }}
       blinds={hand ? `${hand.sb}/${hand.bb}` : "10/20"}
       pot={potView.value}

@@ -59,7 +59,7 @@ export default function Landing() {
 
       <section className="showcase" id="table" aria-label="The table">
         <TableWindow
-          stage={{ n: 1, hand: 7 }}
+          stage={{ n: 1, hand: 7, cleared: 0 }}
           counter={{ n: 1, name: "Jev" }}
           blinds="10/20"
           pot={180}
