@@ -26,7 +26,7 @@ export default async function Image({ params }: { params: Promise<{ code: string
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             {STAGES.map((n, i) => (
-              <div key={n} style={{ width: 54, height: 34, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700, background: i < s.cleared ? IVORY : i === s.stageIdx && !s.won ? "rgba(255,84,104,0.18)" : "rgba(244,241,232,0.06)", color: i < s.cleared ? "#0b1310" : i === s.stageIdx && !s.won ? "#ff5468" : DIM, border: i === s.stageIdx && !s.won ? "2px solid #ff5468" : "2px solid transparent" }}>×{n}</div>
+              <div key={n} style={{ width: 54, height: 34, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700, background: i < s.cleared ? IVORY : i === s.stageIdx && !s.won ? "rgba(255,84,104,0.18)" : "rgba(244,241,232,0.06)", color: i < s.cleared ? "#0b1310" : i === s.stageIdx && !s.won ? "#ff5468" : DIM, border: i === s.stageIdx && !s.won ? "2px solid #ff5468" : "2px solid transparent" }}>{`×${n}`}</div>
             ))}
           </div>
         </div>
@@ -34,7 +34,7 @@ export default async function Image({ params }: { params: Promise<{ code: string
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 40 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ fontSize: 92, fontWeight: 800, letterSpacing: -3, lineHeight: 1 }}>{title}</div>
-            <div style={{ fontSize: 32, color: DIM }}>{s.beaten} Jevs outlasted over {s.hands} hands</div>
+            <div style={{ fontSize: 32, color: DIM }}>{`${s.beaten} Jevs outlasted over ${s.hands} hands`}</div>
           </div>
           {bust && total > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 10, width: 400 }}>
@@ -45,7 +45,7 @@ export default async function Image({ params }: { params: Promise<{ code: string
                   <div style={{ flex: 1, height: 14, borderRadius: 7, background: "rgba(244,241,232,0.08)", display: "flex" }}>
                     <div style={{ width: `${(n / total) * 100}%`, height: 14, borderRadius: 7, background: n === Math.max(...bust.map((b) => b[1])) ? GOLD : "rgba(244,241,232,0.35)" }} />
                   </div>
-                  <div style={{ width: 40, textAlign: "right", fontWeight: 700 }}>{n}</div>
+                  <div style={{ width: 40, textAlign: "right", fontWeight: 700 }}>{String(n)}</div>
                 </div>
               ))}
             </div>
