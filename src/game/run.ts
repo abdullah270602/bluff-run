@@ -1,4 +1,4 @@
-import { MODELS, modelById, type Choice, type Persona, type PlayerView } from "@/brains/types";
+import { modelById, type Choice, type Persona, type PlayerView } from "@/brains/types";
 import { cardStr } from "@/engine/cards";
 import { act, dealHand, legal, liveSeats, potSize, type Action, type HandState } from "@/engine/hand";
 
@@ -19,10 +19,10 @@ function persona(rng: () => number): Persona {
 }
 
 /**
- * Opponents for a stage. Stage 1 is Jev alone. Later, the seats at the player's table rotate through
- * the available models; everyone in the background field is Jev, which is what plays those tables.
+ * Opponents for a stage. Jev by default. If other models are enabled (BLUFF_MODELS), the seats at the
+ * player's table rotate through them; the background field is always Jev, which plays those tables.
  */
-export function rosterForStage(stageIdx: number, modelIds: string[] = MODELS.map((m) => m.id), rng: () => number = Math.random): Opponent[] {
+export function rosterForStage(stageIdx: number, modelIds: string[] = ["jev"], rng: () => number = Math.random): Opponent[] {
   const n = STAGES[stageIdx];
   const pool = modelIds.length ? modelIds : ["jev"];
   const counts = new Map<string, number>();

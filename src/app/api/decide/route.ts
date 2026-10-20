@@ -4,9 +4,10 @@ import { MODELS, type PlayerView } from "@/brains/types";
 
 export const runtime = "nodejs";
 
-/** Whether OpenRouter is configured and which models seats can use. */
+/** Whether OpenRouter is configured and which models seats use. Jev only unless BLUFF_MODELS lists more. */
 export async function GET() {
-  return NextResponse.json({ configured: configured(), models: MODELS.map(({ id, label, short }) => ({ id, label, short })) });
+  const active = (process.env.BLUFF_MODELS || "jev").split(",").map((s) => s.trim());
+  return NextResponse.json({ configured: configured(), models: MODELS.filter((m) => active.includes(m.id)).map(({ id, label, short }) => ({ id, label, short })) });
 }
 
 export async function POST(req: Request) {

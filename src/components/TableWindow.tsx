@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import type { Persona } from "@/brains/types";
 import type { Card } from "@/engine/cards";
 import { Avatar } from "./Avatar";
@@ -13,7 +13,7 @@ export interface SeatVM {
   hole: Card[] | null; status: { text: string; tone: Tone } | null;
   dealer: boolean; turn: boolean; winner: boolean;
 }
-export interface HeroVM { hole: Card[]; stack: number; bet: number; dealer: boolean; folded: boolean; outcome: string | null; winner: boolean }
+export interface HeroVM { hole: Card[]; folded: boolean; outcome: string | null; winner: boolean }
 export interface WindowProps {
   centerLabel: string;
   counter: { n: number; unit: string };
@@ -25,22 +25,27 @@ export interface WindowProps {
   board: Card[];
   handNo: number;
   seats: SeatVM[];
+  you: SeatVM | null;
   hero: HeroVM | null;
   turn: { text: string; sub?: string; progress: number; lime?: boolean };
   actions?: ReactNode;
   leftLinks?: ReactNode;
   floating?: ReactNode;
   overlay?: ReactNode;
-  topRight?: ReactNode;
   fit?: { min?: number; fitHeight?: boolean };
 }
 
-const LARGE = [{ side: "l", x: 118, y: 150 }, { side: "r", x: 118, y: 150 }];
-const ONE_COL = [{ side: "l", x: 58, y: 96 }, { side: "r", x: 58, y: 96 }, { side: "l", x: 58, y: 300 }, { side: "r", x: 58, y: 300 }];
-const TWO_COL = [
-  { side: "l", x: 36, y: 96 }, { side: "r", x: 36, y: 96 }, { side: "l", x: 186, y: 96 }, { side: "r", x: 186, y: 96 },
-  { side: "l", x: 36, y: 300 }, { side: "r", x: 36, y: 300 }, { side: "l", x: 186, y: 300 }, { side: "r", x: 186, y: 300 },
-];
+type Pos = { side: "l" | "r"; x: number; y: number };
+// You always take the first right-hand slot; opponents fill the rest, left side first.
+const LARGE: { you: Pos; opps: Pos[] } = { you: { side: "r", x: 118, y: 150 }, opps: [{ side: "l", x: 118, y: 150 }] };
+const ONE_COL: { you: Pos; opps: Pos[] } = { you: { side: "r", x: 58, y: 96 }, opps: [{ side: "l", x: 58, y: 96 }, { side: "l", x: 58, y: 300 }, { side: "r", x: 58, y: 300 }] };
+const WIDE: { you: Pos; opps: Pos[] } = {
+  you: { side: "r", x: 36, y: 96 },
+  opps: [
+    { side: "l", x: 36, y: 96 }, { side: "l", x: 186, y: 96 }, { side: "l", x: 336, y: 96 }, { side: "r", x: 186, y: 96 }, { side: "r", x: 336, y: 96 },
+    { side: "l", x: 36, y: 300 }, { side: "l", x: 186, y: 300 }, { side: "r", x: 36, y: 300 }, { side: "r", x: 186, y: 300 },
+  ],
+};
 
 const ChipIcon = () => (
   <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -55,11 +60,11 @@ const StackIcon = () => (
   </svg>
 );
 
-export function Seat({ s, compact, pos }: { s: SeatVM; compact: boolean; pos: { side: string; x: number; y: number } }) {
+export function Seat({ s, compact, pos, you = false }: { s: SeatVM; compact: boolean; pos: Pos; you?: boolean }) {
   const style = pos.side === "l" ? { left: pos.x, top: pos.y } : { right: pos.x, top: pos.y };
-  const showCards = !s.out && !s.folded;
+  const showCards = !you && !s.out && !s.folded;
   return (
-    <div className={`seat ${pos.side === "l" ? "seat-left" : "seat-right"} ${compact ? "compact" : ""} ${s.out ? "out" : ""} ${s.turn ? "turn" : ""} ${s.winner ? "winner" : ""}`} style={style}>
+    <div className={`seat ${pos.side === "l" ? "seat-left" : "seat-right"} ${compact ? "compact" : ""} ${you ? "seat-you" : ""} ${s.out ? "out" : ""} ${s.turn ? "turn" : ""} ${s.winner ? "winner" : ""}`} style={style}>
       <div className={`seat-status tone-${s.status?.tone ?? "plain"} ${s.status ? "" : "empty"}`}>{s.status?.text ?? " "}</div>
       <div className="avatar-wrap">
         <Avatar model={s.model} name={s.name} persona={s.persona} />
@@ -83,12 +88,12 @@ export function Seat({ s, compact, pos }: { s: SeatVM; compact: boolean; pos: { 
 
 export function TableWindow(p: WindowProps) {
   const n = p.seats.length;
-  const positions = n <= 2 ? LARGE : n <= 4 ? ONE_COL : TWO_COL;
-  const compact = n > 2;
+  const layout = n <= 1 ? LARGE : n <= 3 ? ONE_COL : WIDE;
+  const compact = n > 1;
   const ring = Math.max(0, Math.min(100, p.turn.progress));
   return (
     <WindowFit min={p.fit?.min} fitHeight={p.fit?.fitHeight}>
-    <div className="poker-window">
+    <div className={`poker-window ${compact ? "many" : ""}`}>
       <header className="topbar">
         <div className="topbar-left">
           <a href="/" className="brand" aria-label="Bluff Run home"><Mark color="var(--lime)" />Bluff Run</a>
@@ -97,7 +102,6 @@ export function TableWindow(p: WindowProps) {
         <div className="topbar-right">
           <div className="counter num" title="Opponents in this stage"><Mark size={14} color="var(--lime)" /><strong>{p.counter.n}</strong><span>{p.counter.unit}</span></div>
           <div className="counter num" title="Blinds"><strong>{p.blinds}</strong><span>blinds</span></div>
-          {p.topRight}
         </div>
       </header>
 
@@ -111,37 +115,27 @@ export function TableWindow(p: WindowProps) {
           <div className="pot-note">{p.potNote ?? ""}</div>
         </div>
 
+        <div className="seats">
+          {p.seats.map((s, i) => <Seat key={s.id} s={s} compact={compact} pos={layout.opps[i] ?? layout.opps[layout.opps.length - 1]} />)}
+          {p.you && <Seat s={p.you} compact={compact} pos={layout.you} you />}
+        </div>
+
         <div className="board" aria-label="Community cards">
           {[0, 1, 2, 3, 4].map((i) => (
-            <div key={i} className={`slot slot-${i + 1} ${p.board[i] === undefined ? "slot-empty" : ""}`}>
-              {p.board[i] !== undefined ? <div className="card-in" key={`${p.handNo}-${p.board[i]}`}><CardFace card={p.board[i]} /></div> : <Mark />}
+            <div key={i} className={`slot slot-${i + 1} ${p.board[i] === undefined ? "slot-empty" : ""}`} style={{ "--dx": `${(2 - i) * 83}px` } as CSSProperties}>
+              {p.board[i] !== undefined
+                ? <div className="card-in" key={`${p.handNo}-${p.board[i]}`} style={{ animationDelay: i < 3 ? `${i * 0.11}s` : "0s" }}><CardFace card={p.board[i]} /></div>
+                : <Mark />}
             </div>
           ))}
         </div>
 
-        {p.seats.map((s, i) => <Seat key={s.id} s={s} compact={compact} pos={positions[i]} />)}
-
         {p.hero && (
-          <>
-            <div className="bank-you">
-              <div className="seat-name-row" style={{ justifyContent: "flex-start" }}>
-                <span className="seat-name">You</span>
-                {p.hero.dealer && <span className="badge badge-d">D</span>}
-              </div>
-              <div className={`bet-pill num ${p.hero.bet > 0 ? "" : "empty"}`}><ChipIcon />{p.hero.bet.toLocaleString()}</div>
-            </div>
-            <div className={`hero-hand ${p.hero.folded ? "dim" : ""}`} key={`hero-${p.handNo}`}>
-              <div className={`hero-outcome ${p.hero.outcome ? "" : "empty"} ${p.hero.winner ? "tone-win" : ""}`}>{p.hero.outcome ?? " "}</div>
-              <div className="hero-card hero-card-l"><CardFace card={p.hero.hole[0]} /></div>
-              <div className="hero-card hero-card-r"><CardFace card={p.hero.hole[1]} /></div>
-            </div>
-            <div className="bank">
-              <div className="bank-col">
-                <div className="bank-label">Your bank</div>
-                <div className="bank-amount num" key={p.hero.stack}>{p.hero.stack.toLocaleString()}</div>
-              </div>
-            </div>
-          </>
+          <div className={`hero-hand ${p.hero.folded ? "dim" : ""}`} key={`hero-${p.handNo}`}>
+            <div className={`hero-outcome ${p.hero.outcome ? "" : "empty"} ${p.hero.winner ? "tone-win" : ""}`}>{p.hero.outcome ?? " "}</div>
+            <div className="hero-card hero-card-l"><CardFace card={p.hero.hole[0]} /></div>
+            <div className="hero-card hero-card-r"><CardFace card={p.hero.hole[1]} /></div>
+          </div>
         )}
 
         <footer className="bottom-bar">

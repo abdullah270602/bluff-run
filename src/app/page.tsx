@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { MODELS } from "@/brains/types";
-import { Avatar } from "@/components/Avatar";
 import { BEST_RUN_KEY } from "@/components/Arena";
 import { Mark } from "@/components/Logo";
 import { TableWindow, type SeatVM } from "@/components/TableWindow";
@@ -14,8 +12,8 @@ import { encodeRun, type RunStats } from "@/game/share";
 const P = (s: string) => parseCard(s);
 const demoSeats: SeatVM[] = [
   { id: "jev", name: "Jev", model: "jev", persona: { aggression: 0.58, bluff: 0.14, patience: 0.4 }, stack: 1840, bet: 60, folded: false, allIn: false, out: false, hole: null, status: { text: "Called", tone: "call" }, dealer: false, turn: false, winner: false },
-  { id: "haiku", name: "Haiku", model: "haiku", persona: { aggression: 0.36, bluff: 0.08, patience: 0.7 }, stack: 2110, bet: 0, folded: true, allIn: false, out: false, hole: null, status: { text: "Folded", tone: "fold" }, dealer: true, turn: false, winner: false },
 ];
+const demoYou: SeatVM = { id: "you", name: "You", model: "you", persona: { aggression: 1, bluff: 0, patience: 0 }, stack: 1940, bet: 60, folded: false, allIn: false, out: false, hole: null, status: null, dealer: true, turn: true, winner: false };
 
 function rounds(n: number) {
   const rows: { seats: number; others: number; tables: number }[] = [];
@@ -31,7 +29,7 @@ function rounds(n: number) {
 function caption(n: number) {
   const r = rounds(n);
   if (n === 1) return "One table. You and Jev, heads-up, 2,000 chips each. Take the last chip to move up.";
-  if (r.length === 1) return `One table, you and ${n} opponents. Every seat is a different model. Take every chip to move up.`;
+  if (r.length === 1) return `One table, you and ${n} Jevs. Each one plays its own style. Take every chip to move up.`;
   return `${r.length} rounds. You and ${r[0].seats} at your table, ${r[0].others} more on ${r[0].tables} other ${r[0].tables === 1 ? "table" : "tables"} that Jev plays at the same time. Their winners come back for you.`;
 }
 
@@ -54,15 +52,15 @@ export default function Landing() {
         </div>
         <div className="intro-copy">
           <h1 className="intro-title">How many AI opponents can you beat?</h1>
-          <p className="intro-sub">Poker against models that decide for themselves. Beat one, and the count doubles every round.</p>
+          <p className="intro-sub">Poker against Jev, an AI that reads your bets. Beat one, and the count doubles every round.</p>
           <Link href="/play" className="pill pill-lime pill-lg">Sit at the table<span className="pill-sub num">1 to 100</span></Link>
         </div>
       </section>
 
       <section className="showcase" id="table" aria-label="The table">
         <TableWindow
-          centerLabel="Stage 2, hand 7"
-          counter={{ n: 2, unit: "opponents" }}
+          centerLabel="Stage 1, hand 7"
+          counter={{ n: 1, unit: "opponent" }}
           blinds="10/20"
           pot={180}
           potLabel="Pot"
@@ -70,7 +68,8 @@ export default function Landing() {
           board={[P("As"), P("Qd"), P("8d")]}
           handNo={7}
           seats={demoSeats}
-          hero={{ hole: [P("9h"), P("Qs")], stack: 1940, bet: 60, dealer: false, folded: false, outcome: null, winner: false }}
+          you={demoYou}
+          hero={{ hole: [P("9h"), P("Qs")], folded: false, outcome: null, winner: false }}
           turn={{ text: "Your turn", progress: 100, lime: true }}
           fit={{ min: 0.28 }}
           actions={<><span className="text-btn text-fold">Fold<span className="key">F</span></span><span className="text-btn text-raise">Raise<span className="key">R</span></span><span className="text-btn">Call 60<span className="key">C</span></span></>}
@@ -93,19 +92,10 @@ export default function Landing() {
           <Link href="/play" className="pill">Sit at the table</Link>
         </div>
         <div className="notes">
-          <div><h3>Real decisions</h3><p>Every seat is a model reading the same table you do: cards, pot, price to call, who did what. After the run, open any hand and see what each one was thinking.</p></div>
+          <div><h3>Real decisions</h3><p>Jev is TypeSafe AI's decision model. It sees the same table you do, weighs fold, call and raise, and plays from those odds. After the run, open any hand and see what it was thinking.</p></div>
           <div><h3>The doubling loop</h3><p>1, 2, 4, 8, 16, 32, 64, then 100. Stacks reset each stage, blinds rise every eight hands, and one bust ends the run.</p></div>
           <div><h3>Past eight, a shootout</h3><p>A table seats nine. Larger fields split into tables that Jev plays while you play yours, and the winners come back to face you.</p></div>
         </div>
-        <ul className="roster" aria-label="Opponents">
-          {MODELS.map((m) => (
-            <li key={m.id}>
-              <div className="avatar-wrap"><Avatar model={m.id} name={m.short} persona={{ aggression: 0.5, bluff: 0.1, patience: 0.5 }} /></div>
-              <h3>{m.label}</h3>
-              <p>{m.blurb}</p>
-            </li>
-          ))}
-        </ul>
       </section>
 
       <footer className="site-foot">

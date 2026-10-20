@@ -188,7 +188,7 @@ export function Arena() {
     const ev = youSeat && !youSeat.folded && hand.board.length >= 3 ? evaluate(youSeat.hole.concat(hand.board)) : null;
     setStatuses((prev) => {
       const next = { ...prev };
-      for (const w of hand.result?.winners ?? []) if (w.seat !== PLAYER_ID) next[w.seat] = { text: `Wins ${w.amount.toLocaleString()}`, tone: "win" };
+      for (const w of hand.result?.winners ?? []) next[w.seat] = { text: `Wins ${w.amount.toLocaleString()}`, tone: "win" };
       return next;
     });
     setStats((prev) => {
@@ -408,7 +408,8 @@ export function Arena() {
       board={hand?.board ?? []}
       handNo={handNo}
       seats={seats}
-      hero={youSeat ? { hole: youSeat.hole, stack: youSeat.stack, bet: hand?.street === "done" ? 0 : youSeat.bet, dealer: hand?.dealer === youIdx, folded: youSeat.folded, winner: Boolean(youWon), outcome: youSeat.folded ? "Folded" : hand?.street === "done" ? (youWon ? (youWon.label ?? "You win") : heroEval) : null } : null}
+      you={youSeat ? { id: PLAYER_ID, name: "You", model: "you", persona: { aggression: 1, bluff: 0, patience: 0 }, stack: youSeat.stack, bet: hand?.street === "done" ? 0 : youSeat.bet, folded: youSeat.folded, allIn: youSeat.allIn, out: false, hole: null, status: statuses[PLAYER_ID] ?? null, dealer: hand?.dealer === youIdx, turn: yourTurn, winner: Boolean(youWon) } : null}
+      hero={youSeat ? { hole: youSeat.hole, folded: youSeat.folded, winner: Boolean(youWon), outcome: youSeat.folded ? "Folded" : hand?.street === "done" ? (youWon ? (youWon.label ?? "You win") : heroEval) : null } : null}
       turn={turn}
       actions={actions}
       leftLinks={leftLinks}

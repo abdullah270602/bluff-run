@@ -5,6 +5,7 @@ const HUE: Record<string, [string, string]> = {
   haiku: ["#5eead4", "#06211a"],
   nano: ["#f5f1e6", "#15201b"],
   flash: ["#7fb3ff", "#0a1a2e"],
+  you: ["#f5f1e6", "#0b1310"],
 };
 
 /**

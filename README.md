@@ -13,7 +13,7 @@ Start heads-up against Jev with 2,000 chips each and 10/20 blinds that rise ever
 ## How it works
 
 - **Engine** (`src/engine/`): hand evaluator, betting rounds, side pots, blind schedule. `npm test` runs the self-check.
-- **Opponents** (`src/brains/`): every seat is a model reached through OpenRouter. Jev (TypeSafe AI) answers a choice question with probabilities and the seat samples from them. Claude Haiku, GPT Nano and Gemini Flash Lite answer in JSON with one line of reasoning. A seat whose model does not answer checks or folds, like a player who timed out. The roster lives in `src/brains/types.ts`.
+- **Opponents** (`src/brains/`): every seat is Jev (TypeSafe AI) reached through OpenRouter. It answers a choice question with a probability per action and the seat samples from them. A seat whose model does not answer checks or folds, like a player who timed out. Other chat models are defined in `src/brains/types.ts` and can be turned on with `BLUFF_MODELS=jev,haiku` if you ever want a mixed table.
 - **Stages past 8** (`src/game/run.ts`): a table seats nine. The rest of the field splits into tables of up to nine that Jev plays on the server (`/api/simulate`) while you play yours. Winners come back to face you until no one is left. Stage 100 is three rounds.
 - **Share** (`/r/[code]`): the run summary is encoded in the URL with a generated Open Graph image.
 
