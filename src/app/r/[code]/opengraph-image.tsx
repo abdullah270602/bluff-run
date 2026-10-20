@@ -14,8 +14,8 @@ export default async function Image({ params }: { params: Promise<{ code: string
   const headline = stats.won
     ? "Cleared the 100."
     : stats.cleared === 0
-      ? "Stopped at Stage 1."
-      : `Fell at Stage ${stageNum}.`;
+      ? "Jev held the first table."
+      : `Out at stage ${stats.stageIdx + 1}.`;
 
   return new ImageResponse(
     (

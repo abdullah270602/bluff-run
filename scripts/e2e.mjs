@@ -1,5 +1,5 @@
-// Scripted play-through: calls/checks for a while and verifies hands keep advancing with no page errors.
-// Usage: node scripts/e2e.mjs [baseUrl]
+// Scripted play-through: checks/calls for a while and verifies hands keep advancing with no page errors.
+// Usage: node scripts/e2e.mjs [baseUrl]   (run the server with BLUFF_MOCK=1 for a no-network check)
 import { chromium } from "playwright";
 
 const base = process.argv[2] || "http://localhost:3100";
@@ -10,26 +10,24 @@ page.on("pageerror", (e) => errors.push(String(e)));
 page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
 
 await page.goto(base + "/play", { waitUntil: "networkidle" });
-await page.getByRole("button", { name: "Fast" }).or(page.getByRole("button", { name: "Normal" })).first().click();
-
-const handNo = async () => Number((await page.locator(".hud-blinds-label").textContent())?.replace(/\D/g, "") || 0);
+const handNo = async () => Number((await page.locator(".topbar-center").textContent())?.match(/hand (\d+)/)?.[1] || 0);
 const start = await handNo();
-const deadline = Date.now() + 60_000;
-let clicks = 0;
+const deadline = Date.now() + 75_000;
+let clicks = 0, shot = false;
 while (Date.now() < deadline) {
-  const call = page.locator(".act-call");
-  if (await call.count()) { await call.first().click({ timeout: 1000 }).catch(() => {}); clicks++; }
-  const next = page.getByRole("button", { name: /Next hand/ });
-  if (await next.count()) await next.first().click({ timeout: 1000 }).catch(() => {});
-  const modal = page.locator(".arena-modal .btn-primary");
-  if (await modal.count()) await modal.first().click({ timeout: 1000 }).catch(() => {});
-  if (await page.locator(".summary-card").count()) break;
+  const act = page.getByRole("button", { name: /^(Check|Call)/ });
+  if (await act.count()) { await act.first().click({ timeout: 800 }).catch(() => {}); clicks++; }
+  const next = page.getByRole("button", { name: /^(Next hand|Deal)/ });
+  if (await next.count()) await next.first().click({ timeout: 800 }).catch(() => {});
+  if (!shot && (await handNo()) >= 3) { await page.screenshot({ path: "screenshots/play-mid.png" }); shot = true; }
+  if (await page.locator(".results").count()) break;
   await page.waitForTimeout(150);
 }
 const end = await handNo();
-const summary = await page.locator(".summary-card").count();
-console.log({ startHand: start, endHand: end, clicks, runOver: summary > 0, errors: errors.length });
-if (errors.length) console.log(errors.slice(0, 5));
+const results = await page.locator(".results").count();
+if (results) { await page.locator(".review-hand-head").first().click().catch(() => {}); await page.waitForTimeout(300); }
 await page.screenshot({ path: "screenshots/e2e-final.png" });
+console.log({ startHand: start, endHand: end, clicks, runOver: results > 0, errors: errors.length });
+if (errors.length) console.log(errors.slice(0, 5));
 await browser.close();
-if (errors.length || (end <= start && !summary)) process.exit(1);
+if (errors.length || (end <= start && !results)) process.exit(1);

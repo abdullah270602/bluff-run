@@ -16,6 +16,7 @@ async function shot(name, { width, height, url, before }) {
 }
 
 await shot("landing-desktop", { width: 1440, height: 900, url: "/" });
+await shot("landing-table", { width: 1440, height: 900, url: "/#table", before: (p) => p.waitForTimeout(800) });
 await shot("landing-mobile", { width: 390, height: 844, url: "/" });
 await shot("play-desktop", { width: 1440, height: 900, url: "/play", before: (p) => p.waitForTimeout(2500) });
 await shot("play-laptop", { width: 1280, height: 720, url: "/play", before: (p) => p.waitForTimeout(2500) });

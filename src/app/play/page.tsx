@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
-import { PokerArena } from "@/components/PokerArena";
+import { Arena } from "@/components/Arena";
 
-export const metadata: Metadata = {
-  title: "Bluff Run, at the table",
-  description: "No-limit Texas Hold'em gauntlet against escalating AI opponents: 1, 2, 4, 8, 16, 32, 64, 100.",
-};
+export const metadata: Metadata = { title: "Bluff Run, at the table" };
 
 export default function PlayPage() {
-  return <PokerArena />;
+  return (
+    <div className="page-shell" style={{ paddingTop: 20 }}>
+      <Arena />
+    </div>
+  );
 }

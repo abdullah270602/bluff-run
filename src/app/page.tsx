@@ -2,17 +2,22 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { motion } from "motion/react";
-import { Logo } from "@/components/Logo";
-import { PlayingCard } from "@/components/PlayingCard";
-import { BEST_RUN_STORAGE_KEY } from "@/components/PokerArena";
-import { parseCard } from "@/engine/cards";
 import { MODELS } from "@/brains/types";
+import { Avatar } from "@/components/Avatar";
+import { BEST_RUN_KEY } from "@/components/Arena";
+import { Mark } from "@/components/Logo";
+import { TableWindow, type SeatVM } from "@/components/TableWindow";
+import { parseCard } from "@/engine/cards";
 import { type Opponent, splitRound, STAGES } from "@/game/run";
 import { encodeRun, type RunStats } from "@/game/share";
 
-/** Real round structure for a stage, straight from the same split the game uses. */
-function bracket(n: number) {
+const P = (s: string) => parseCard(s);
+const demoSeats: SeatVM[] = [
+  { id: "jev", name: "Jev", model: "jev", persona: { aggression: 0.58, bluff: 0.14, patience: 0.4 }, stack: 1840, bet: 60, folded: false, allIn: false, out: false, hole: null, status: { text: "Called", tone: "call" }, dealer: false, turn: false, winner: false },
+  { id: "haiku", name: "Haiku", model: "haiku", persona: { aggression: 0.36, bluff: 0.08, patience: 0.7 }, stack: 2110, bet: 0, folded: true, allIn: false, out: false, hole: null, status: { text: "Folded", tone: "fold" }, dealer: true, turn: false, winner: false },
+];
+
+function rounds(n: number) {
   const rows: { seats: number; others: number; tables: number }[] = [];
   let field = n;
   while (field > 0) {
@@ -23,169 +28,89 @@ function bracket(n: number) {
   return rows;
 }
 
-function stageSentence(n: number) {
-  const rows = bracket(n);
-  if (n === 1) return "One table. You and Jev, heads-up, 2,000 chips each.";
-  if (rows.length === 1) return `One table. You and ${n} opponents. Take every chip to clear the stage.`;
-  const first = rows[0];
-  return `${rows.length} rounds. Your table seats you and ${first.seats}. The other ${first.others} play ${first.tables} ${first.tables === 1 ? "table" : "tables"} in the background, and their winners come back for you.`;
+function caption(n: number) {
+  const r = rounds(n);
+  if (n === 1) return "One table. You and Jev, heads-up, 2,000 chips each. Take the last chip to move up.";
+  if (r.length === 1) return `One table, you and ${n} opponents. Every seat is a different model. Take every chip to move up.`;
+  return `${r.length} rounds. You and ${r[0].seats} at your table, ${r[0].others} more on ${r[0].tables} other ${r[0].tables === 1 ? "table" : "tables"} that Jev plays at the same time. Their winners come back for you.`;
 }
 
-const SAMPLE_CARDS: [string, string][] = [["As", "Ks"], ["Qh", "Qd"], ["Jh", "Th"], ["Ac", "Ad"], ["Kd", "Qd"], ["9s", "9c"], ["Ah", "5h"], ["As", "Ah"]];
-
-export default function LandingPage() {
-  const [selected, setSelected] = useState(0);
-  const [bestRun, setBestRun] = useState<RunStats | null>(null);
-  const [configured, setConfigured] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(BEST_RUN_STORAGE_KEY);
-      if (raw) setBestRun(JSON.parse(raw) as RunStats);
-    } catch { /* storage unavailable */ }
-    fetch("/api/decide").then((r) => (r.ok ? r.json() : null)).then((d) => d && setConfigured(Boolean(d.configured))).catch(() => {});
-  }, []);
-
-  const n = STAGES[selected];
-  const rows100 = bracket(100);
+export default function Landing() {
+  const [sel, setSel] = useState(0);
+  const [best, setBest] = useState<RunStats | null>(null);
+  useEffect(() => { try { const raw = localStorage.getItem(BEST_RUN_KEY); if (raw) setBest(JSON.parse(raw)); } catch { /* none */ } }, []);
+  const n = STAGES[sel];
 
   return (
-    <div className="landing-shell">
-      <header className="site-nav">
-        <Logo />
-        <nav className="nav-right" aria-label="Primary">
-          {bestRun && (
-            <Link href={`/r/${encodeRun(bestRun)}`} className="best-run-pill num">
-              Best run: stage {STAGES[bestRun.stageIdx]}, {bestRun.beaten} beaten
-            </Link>
-          )}
-          <a href="#how" className="nav-link">How it works</a>
-          <Link href="/play" className="btn btn-primary btn-sm">Sit down</Link>
-        </nav>
-      </header>
+    <div className="page-shell">
+      <section className="intro">
+        <div className="intro-top">
+          <span className="brand"><Mark color="var(--lime)" />Bluff Run</span>
+          <nav className="intro-nav" aria-label="Page">
+            <a href="#table">Table</a>
+            <a href="#loop">How it works</a>
+            {best && <Link href={`/r/${encodeRun(best)}`}>Best run: stage {STAGES[best.stageIdx]}</Link>}
+          </nav>
+        </div>
+        <div className="intro-copy">
+          <h1 className="intro-title">How many AI opponents can you beat?</h1>
+          <p className="intro-sub">Poker against models that decide for themselves. Beat one, and the count doubles every round.</p>
+          <Link href="/play" className="pill pill-lime pill-lg">Sit at the table<span className="pill-sub num">1 to 100</span></Link>
+        </div>
+      </section>
 
-      <main className="landing-main">
-        <section className="hero-grid">
-          <motion.div className="hero-copy" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, ease: [0.2, 0.8, 0.2, 1] }}>
-            <h1 className="hero-headline">How many AI opponents can you beat?</h1>
-            <p className="hero-lead">
-              Heads-up against Jev to start. Win the table and the field doubles. One stack, no second chances.
-            </p>
-            <div className="hero-cta-row">
-              <Link href="/play" className="btn btn-primary btn-lg">Sit down</Link>
-              <span className="hero-seq num">1, 2, 4, 8, 16, 32, 64, 100</span>
-            </div>
-          </motion.div>
+      <section className="showcase" id="table" aria-label="The table">
+        <TableWindow
+          centerLabel="Stage 2, hand 7"
+          counter={{ n: 2, unit: "opponents" }}
+          blinds="10/20"
+          pot={180}
+          potLabel="Pot"
+          potNote="Flop"
+          board={[P("As"), P("Qd"), P("8d")]}
+          handNo={7}
+          seats={demoSeats}
+          hero={{ hole: [P("9h"), P("Qs")], stack: 1940, bet: 60, dealer: false, folded: false, outcome: null, winner: false }}
+          turn={{ text: "Your turn", progress: 100, lime: true }}
+          fit={{ min: 0.28 }}
+          actions={<><span className="text-btn text-fold">Fold<span className="key">F</span></span><span className="text-btn text-raise">Raise<span className="key">R</span></span><span className="text-btn">Call 60<span className="key">C</span></span></>}
+        />
+        <Link href="/play" className="showcase-link" aria-label="Sit at the table" />
+      </section>
 
-          <motion.div className="hero-ladder-panel" initial={{ opacity: 0, y: 22 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.08, ease: [0.2, 0.8, 0.2, 1] }}>
-            <div className="panel-top-bar">
-              <span className="panel-label">The ladder</span>
-              <span className="panel-hint">Hover a stage</span>
-            </div>
-
-            <div className="hero-bars" role="tablist" aria-label="Stages">
-              {STAGES.map((stage, i) => {
-                const isSelected = i === selected;
-                const clearedInBest = bestRun ? i < bestRun.cleared : false;
-                return (
-                  <motion.button
-                    key={stage}
-                    type="button"
-                    role="tab"
-                    aria-selected={isSelected}
-                    className={`hero-bar-col ${isSelected ? "is-selected" : ""} ${clearedInBest ? "is-cleared" : ""}`}
-                    onClick={() => setSelected(i)}
-                    onMouseEnter={() => setSelected(i)}
-                    onFocus={() => setSelected(i)}
-                    initial={{ opacity: 0, scaleY: 0.2 }}
-                    animate={{ opacity: 1, scaleY: 1 }}
-                    transition={{ duration: 0.42, delay: 0.12 + i * 0.045, ease: [0.2, 0.8, 0.2, 1] }}
-                    style={{ transformOrigin: "bottom" }}
-                  >
-                    <div className="hero-bar-track">
-                      <div className="hero-bar-fill" style={{ height: `${22 + i * 11}%` }} />
-                    </div>
-                    <span className="hero-bar-num num">{stage}</span>
-                  </motion.button>
-                );
-              })}
-            </div>
-
-            <div className="stage-detail">
-              <div className="stage-detail-main">
-                <h2 className="stage-detail-title num">Stage {selected + 1}: {n} {n === 1 ? "opponent" : "opponents"}</h2>
-                <p className="stage-detail-text">{stageSentence(n)}</p>
-              </div>
-              <div className="stage-detail-cards" aria-hidden="true">
-                <PlayingCard card={parseCard(SAMPLE_CARDS[selected][0])} size="md" />
-                <PlayingCard card={parseCard(SAMPLE_CARDS[selected][1])} size="md" highlighted />
-              </div>
-            </div>
-          </motion.div>
-        </section>
-
-        <section id="how" className="how-section">
-          <h2 className="section-title">One run. Eight stages. No scripted hands.</h2>
-          <ol className="steps">
-            <li>
-              <h3>Sit down</h3>
-              <p>Every table starts fresh: 2,000 chips each, blinds at 10/20, rising every eight hands.</p>
+      <section className="loop" id="loop">
+        <div className="loop-head">
+          <h2 className="loop-title">Beat one, and the count doubles.</h2>
+          <p className="loop-desc">The table stays the same. Every time you clear it, the number of opponents waiting for you doubles.</p>
+        </div>
+        <div className="track" role="tablist" aria-label="Stages">
+          {STAGES.map((s, i) => <button key={s} type="button" role="tab" aria-selected={i === sel} className={`pill num ${i === sel ? "active" : ""}`} onClick={() => setSel(i)} onMouseEnter={() => setSel(i)}>{s}</button>)}
+        </div>
+        <div className="loop-readout">
+          <div className="loop-readout-label num">Stage {sel + 1}</div>
+          <div className="loop-big num">{n} {n === 1 ? "opponent" : "opponents"}</div>
+          <p className="loop-caption">{caption(n)}</p>
+          <Link href="/play" className="pill">Sit at the table</Link>
+        </div>
+        <div className="notes">
+          <div><h3>Real decisions</h3><p>Every seat is a model reading the same table you do: cards, pot, price to call, who did what. After the run, open any hand and see what each one was thinking.</p></div>
+          <div><h3>The doubling loop</h3><p>1, 2, 4, 8, 16, 32, 64, then 100. Stacks reset each stage, blinds rise every eight hands, and one bust ends the run.</p></div>
+          <div><h3>Past eight, a shootout</h3><p>A table seats nine. Larger fields split into tables that Jev plays while you play yours, and the winners come back to face you.</p></div>
+        </div>
+        <ul className="roster" aria-label="Opponents">
+          {MODELS.map((m) => (
+            <li key={m.id}>
+              <div className="avatar-wrap"><Avatar model={m.id} name={m.short} persona={{ aggression: 0.5, bluff: 0.1, patience: 0.5 }} /></div>
+              <h3>{m.label}</h3>
+              <p>{m.blurb}</p>
             </li>
-            <li>
-              <h3>Take every chip</h3>
-              <p>Clear the table and the stage is yours. Lose your stack once and the run ends.</p>
-            </li>
-            <li>
-              <h3>Watch it double</h3>
-              <p>Each cleared stage doubles the field, up to 100 opponents.</p>
-            </li>
-          </ol>
-        </section>
+          ))}
+        </ul>
+      </section>
 
-        <section className="opponents-section">
-          <div className="opponents-intro">
-            <h2 className="section-title">The opponents decide for themselves.</h2>
-            <p>
-              Each seat is driven by a model that sees the same table you do: cards, pot, price to call, who did what. No scripted lines.
-              {configured === false && " This deployment has no OpenRouter key yet, so the table cannot open."}
-            </p>
-          </div>
-          <ul className="roster">
-            {MODELS.map((m) => (
-              <li key={m.id}>
-                <span className={`roster-glyph glyph-${m.id}`} aria-hidden="true">{m.short[0]}</span>
-                <div>
-                  <h3>{m.label}</h3>
-                  <p>{m.blurb}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section className="bracket-section">
-          <h2 className="section-title">Past eight, it becomes a shootout.</h2>
-          <p className="bracket-lead">A poker table seats nine. At stage 100 the field splits into tables. You play yours live, Jev plays the rest on the server at the same time, and the winners come back for you. Three rounds, and you have to win every table.</p>
-          <ol className="bracket" aria-label="Stage 100 rounds">
-            {rows100.map((r, i) => (
-              <li key={i} className="bracket-row">
-                <span className="bracket-round num">Round {i + 1}</span>
-                <span className="bracket-tables" aria-hidden="true">
-                  <span className="bracket-table is-you" />
-                  {Array.from({ length: r.tables }, (_, k) => <span key={k} className="bracket-table" />)}
-                </span>
-                <span className="bracket-note num">
-                  {r.tables === 0 ? `You and ${r.seats} at the final table` : `Your table of ${r.seats + 1}, plus ${r.others} opponents on ${r.tables} ${r.tables === 1 ? "table" : "tables"}`}
-                </span>
-              </li>
-            ))}
-          </ol>
-        </section>
-      </main>
-
-      <footer className="site-footer">
-        <Logo />
-        <Link href="/play" className="btn btn-ghost btn-sm">Sit down</Link>
+      <footer className="site-foot">
+        <span className="brand" style={{ fontSize: 14 }}><Mark size={18} color="var(--lime)" />Bluff Run</span>
+        <span>How far can you go against AI?</span>
       </footer>
     </div>
   );
