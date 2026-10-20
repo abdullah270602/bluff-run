@@ -89,3 +89,16 @@ export function evaluate(cards: Card[]): HandValue {
   return { score: pack(0, ks), category: 0, label: `${RANK_WORD[ks[0]]} high` };
 }
 
+
+/** The five cards that make the best hand (ties resolved by first combination found). */
+export function bestFive(cards: Card[]): Card[] {
+  if (cards.length <= 5) return [...cards];
+  let best: Card[] = [], bestScore = -1;
+  const n = cards.length;
+  for (let a = 0; a < n; a++) for (let b = a + 1; b < n; b++) for (let c = b + 1; c < n; c++) for (let d = c + 1; d < n; d++) for (let e = d + 1; e < n; e++) {
+    const five = [cards[a], cards[b], cards[c], cards[d], cards[e]];
+    const s = evaluate(five).score;
+    if (s > bestScore) { bestScore = s; best = five; }
+  }
+  return best;
+}

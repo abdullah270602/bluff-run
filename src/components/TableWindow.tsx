@@ -1,14 +1,14 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { Persona } from "@/brains/types";
 import type { Card } from "@/engine/cards";
-import { Avatar } from "./Avatar";
+import { Character, type Mood } from "./Character";
 import { Mark } from "./Logo";
 import { CardBack, CardFace } from "./PlayingCard";
 import { WindowFit } from "./WindowFit";
 
 export type Tone = "call" | "fold" | "raise" | "win" | "think" | "plain";
 export interface SeatVM {
-  id: string; name: string; model: string; persona: Persona;
+  id: string; name: string; model: string; persona: Persona; mood: Mood;
   stack: number; bet: number; folded: boolean; allIn: boolean; out: boolean;
   hole: Card[] | null; status: { text: string; tone: Tone } | null;
   dealer: boolean; turn: boolean; winner: boolean;
@@ -27,7 +27,10 @@ export interface WindowProps {
   seats: SeatVM[];
   you: SeatVM | null;
   hero: HeroVM | null;
-  turn: { text: string; sub?: string; progress: number; lime?: boolean };
+  /** Winning five at showdown: everything else dims. */
+  highlight?: Set<Card> | null;
+  banner?: { key: string; title: string; sub?: string; big?: boolean } | null;
+  turn: { text: string; sub?: string; progress: number; gold?: boolean };
   actions?: ReactNode;
   leftLinks?: ReactNode;
   floating?: ReactNode;
@@ -60,18 +63,18 @@ const StackIcon = () => (
   </svg>
 );
 
-export function Seat({ s, compact, pos, you = false }: { s: SeatVM; compact: boolean; pos: Pos; you?: boolean }) {
+export function Seat({ s, compact, pos, you = false, highlight }: { s: SeatVM; compact: boolean; pos: Pos; you?: boolean; highlight?: Set<Card> | null }) {
   const style = pos.side === "l" ? { left: pos.x, top: pos.y } : { right: pos.x, top: pos.y };
   const showCards = !you && !s.out && !s.folded;
   return (
     <div className={`seat ${pos.side === "l" ? "seat-left" : "seat-right"} ${compact ? "compact" : ""} ${you ? "seat-you" : ""} ${s.out ? "out" : ""} ${s.turn ? "turn" : ""} ${s.winner ? "winner" : ""}`} style={style}>
-      <div className={`seat-status tone-${s.status?.tone ?? "plain"} ${s.status ? "" : "empty"}`}>{s.status?.text ?? " "}</div>
+      <div className={`seat-status tone-${s.status?.tone ?? "plain"} ${s.status ? "" : "empty"}`} key={s.status?.text ?? ""}>{s.status?.text ?? " "}</div>
       <div className="avatar-wrap">
-        <Avatar model={s.model} name={s.name} persona={s.persona} />
+        <div className="avatar"><Character id={s.id} model={s.model} mood={s.mood} /></div>
         {showCards && (
           <div className="mini-cards">
             {[0, 1].map((i) => (
-              <div className="mini-card" key={i}>{s.hole ? <CardFace card={s.hole[i]} /> : <CardBack />}</div>
+              <div className="mini-card" key={i}>{s.hole ? <CardFace card={s.hole[i]} dim={Boolean(highlight && !highlight.has(s.hole[i]))} /> : <CardBack />}</div>
             ))}
           </div>
         )}
@@ -91,16 +94,17 @@ export function TableWindow(p: WindowProps) {
   const layout = n <= 1 ? LARGE : n <= 3 ? ONE_COL : WIDE;
   const compact = n > 1;
   const ring = Math.max(0, Math.min(100, p.turn.progress));
+  const hl = p.highlight ?? null;
   return (
     <WindowFit min={p.fit?.min} fitHeight={p.fit?.fitHeight}>
     <div className={`poker-window ${compact ? "many" : ""}`}>
       <header className="topbar">
         <div className="topbar-left">
-          <a href="/" className="brand" aria-label="Bluff Run home"><Mark color="var(--lime)" />Bluff Run</a>
+          <a href="/" className="brand" aria-label="Bluff Run home"><Mark color="var(--accent)" />Bluff Run</a>
         </div>
-        <div className="topbar-center num">{p.centerLabel}</div>
+        <div className="topbar-center num" key={p.centerLabel}>{p.centerLabel}</div>
         <div className="topbar-right">
-          <div className="counter num" title="Opponents in this stage"><Mark size={14} color="var(--lime)" /><strong>{p.counter.n}</strong><span>{p.counter.unit}</span></div>
+          <div className="counter num" title="Opponents in this stage"><Mark size={14} color="var(--gold)" /><strong>{p.counter.n}</strong><span>{p.counter.unit}</span></div>
           <div className="counter num" title="Blinds"><strong>{p.blinds}</strong><span>blinds</span></div>
         </div>
       </header>
@@ -116,7 +120,7 @@ export function TableWindow(p: WindowProps) {
         </div>
 
         <div className="seats">
-          {p.seats.map((s, i) => <Seat key={s.id} s={s} compact={compact} pos={layout.opps[i] ?? layout.opps[layout.opps.length - 1]} />)}
+          {p.seats.map((s, i) => <Seat key={s.id} s={s} compact={compact} pos={layout.opps[i] ?? layout.opps[layout.opps.length - 1]} highlight={hl} />)}
           {p.you && <Seat s={p.you} compact={compact} pos={layout.you} you />}
         </div>
 
@@ -124,7 +128,7 @@ export function TableWindow(p: WindowProps) {
           {[0, 1, 2, 3, 4].map((i) => (
             <div key={i} className={`slot slot-${i + 1} ${p.board[i] === undefined ? "slot-empty" : ""}`} style={{ "--dx": `${(2 - i) * 83}px` } as CSSProperties}>
               {p.board[i] !== undefined
-                ? <div className="card-in" key={`${p.handNo}-${p.board[i]}`} style={{ animationDelay: i < 3 ? `${i * 0.11}s` : "0s" }}><CardFace card={p.board[i]} /></div>
+                ? <div className="card-in" key={`${p.handNo}-${p.board[i]}`} style={{ animationDelay: i < 3 ? `${i * 0.11}s` : "0s" }}><CardFace card={p.board[i]} dim={Boolean(hl && !hl.has(p.board[i]))} /></div>
                 : <Mark />}
             </div>
           ))}
@@ -133,8 +137,15 @@ export function TableWindow(p: WindowProps) {
         {p.hero && (
           <div className={`hero-hand ${p.hero.folded ? "dim" : ""}`} key={`hero-${p.handNo}`}>
             <div className={`hero-outcome ${p.hero.outcome ? "" : "empty"} ${p.hero.winner ? "tone-win" : ""}`}>{p.hero.outcome ?? " "}</div>
-            <div className="hero-card hero-card-l"><CardFace card={p.hero.hole[0]} /></div>
-            <div className="hero-card hero-card-r"><CardFace card={p.hero.hole[1]} /></div>
+            <div className={`hero-card hero-card-l ${hl && !hl.has(p.hero.hole[0]) ? "dim" : ""}`}><CardFace card={p.hero.hole[0]} /></div>
+            <div className={`hero-card hero-card-r ${hl && !hl.has(p.hero.hole[1]) ? "dim" : ""}`}><CardFace card={p.hero.hole[1]} /></div>
+          </div>
+        )}
+
+        {p.banner && (
+          <div className={`banner ${p.banner.big ? "big" : ""}`} key={p.banner.key} aria-live="polite">
+            <div className="banner-title">{p.banner.title}</div>
+            {p.banner.sub && <div className="banner-sub">{p.banner.sub}</div>}
           </div>
         )}
 
@@ -144,7 +155,7 @@ export function TableWindow(p: WindowProps) {
           <div className="stadium">
             <svg viewBox="0 0 164 52" fill="none" aria-hidden="true">
               <path d="M 14 45 A 24 24 0 0 1 26 2 L 138 2 A 24 24 0 0 1 138 50 L 26 50 A 24 24 0 0 1 14 45 Z" stroke="rgba(255,255,255,0.1)" strokeWidth="2.2" />
-              <path className="stadium-ring" d="M 14 45 A 24 24 0 0 1 26 2 L 138 2 A 24 24 0 0 1 138 50 L 26 50 A 24 24 0 0 1 14 45" pathLength={100} stroke={p.turn.lime ? "var(--lime)" : "rgba(255,255,255,0.35)"} strokeWidth="2.4" strokeLinecap="round" strokeDasharray={100} strokeDashoffset={100 - ring} />
+              <path className="stadium-ring" d="M 14 45 A 24 24 0 0 1 26 2 L 138 2 A 24 24 0 0 1 138 50 L 26 50 A 24 24 0 0 1 14 45" pathLength={100} stroke={p.turn.gold ? "var(--gold)" : "rgba(255,255,255,0.35)"} strokeWidth="2.4" strokeLinecap="round" strokeDasharray={100} strokeDashoffset={100 - ring} />
             </svg>
             <div className="stadium-text">{p.turn.text}{p.turn.sub && <span className="num">{p.turn.sub}</span>}</div>
           </div>

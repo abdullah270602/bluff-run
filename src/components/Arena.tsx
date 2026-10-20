@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { timedOutDecision, type Decision } from "@/brains/types";
-import { evaluate } from "@/engine/evaluate";
+import { bestFive, evaluate } from "@/engine/evaluate";
+import type { Mood } from "./Character";
 import { act, dealHand, legal, liveSeats, potSize, type Action, type HandState } from "@/engine/hand";
 import { blindsFor, buildView, type Opponent, PLAYER_ID, resolveChoice, rosterForStage, roundsForStage, splitRound, START_STACK, STAGES } from "@/game/run";
 import { recordHand, type HandRecord } from "@/game/review";
@@ -188,7 +189,11 @@ export function Arena() {
     const ev = youSeat && !youSeat.folded && hand.board.length >= 3 ? evaluate(youSeat.hole.concat(hand.board)) : null;
     setStatuses((prev) => {
       const next = { ...prev };
-      for (const w of hand.result?.winners ?? []) next[w.seat] = { text: `Wins ${w.amount.toLocaleString()}`, tone: "win" };
+      const winIds = new Set((hand.result?.winners ?? []).map((w) => w.seat));
+      if (hand.result?.showdown) {
+        for (const s of hand.seats) if (!s.folded) next[s.id] = { text: evaluate(s.hole.concat(hand.board)).label, tone: winIds.has(s.id) ? "win" : "plain" };
+      }
+      for (const w of hand.result?.winners ?? []) if (!hand.result?.showdown) next[w.seat] = { text: `Wins ${w.amount.toLocaleString()}`, tone: "win" };
       return next;
     });
     setStats((prev) => {
@@ -207,7 +212,7 @@ export function Arena() {
       if (busted) setPhase("runOver");
       else if (cleared) setPhase(bgTables.length ? (bgWinners.length ? "roundCleared" : "waitingBg") : stageIdx === STAGES.length - 1 ? "runOver" : "stageCleared");
       else nextHand();
-    }, busted || cleared ? 2200 : 2600);
+    }, hand.result?.showdown ? 4600 : busted || cleared ? 2200 : 2400);
     return () => clearTimeout(t);
   }, [hand, stageIdx, roundNo, names, models, bgTables, bgWinners, nextHand]);
 
@@ -261,11 +266,26 @@ export function Arena() {
   const youWon = hand?.result?.winners.find((w) => w.seat === PLAYER_ID);
   const heroEval = youSeat && !youSeat.folded && hand && hand.board.length >= 3 ? evaluate(youSeat.hole.concat(hand.board)).label : null;
 
+  const done = hand?.street === "done";
+  const moodFor = (id: string, s?: { folded: boolean; allIn: boolean }, statusTone?: Tone): Mood => {
+    if (!s) return "out";
+    if (thinking === id) return "think";
+    if (done && winners.has(id)) return "win";
+    if (s.folded) return "fold";
+    if (done && hand?.result?.showdown) return "lose";
+    if (s.allIn) return "allin";
+    if (statusTone === "raise") return "raise";
+    return "idle";
+  };
+  const firstWinner = hand?.result?.winners[0];
+  const winSeat = firstWinner ? hand!.seats.find((s) => s.id === firstWinner.seat) : null;
+  const highlight = done && hand?.result?.showdown && winSeat ? new Set(bestFive(winSeat.hole.concat(hand!.board))) : null;
+
   const seats: SeatVM[] = tableOpps.map((o) => {
     const s = hand?.seats.find((x) => x.id === o.id);
     const idx = hand ? hand.seats.findIndex((x) => x.id === o.id) : -1;
     return {
-      id: o.id, name: o.name, model: o.model, persona: o.persona,
+      id: o.id, name: o.name, model: o.model, persona: o.persona, mood: moodFor(o.id, s, statuses[o.id]?.tone),
       stack: s?.stack ?? 0, bet: hand?.street === "done" ? 0 : s?.bet ?? 0, folded: s?.folded ?? false, allIn: s?.allIn ?? false, out: !s,
       hole: s && (revealed.has(o.id) || (hand?.street === "done" && hand.result?.showdown && !s.folded)) ? s.hole : null,
       status: thinking === o.id ? { text: "Thinking", tone: "think" } : statuses[o.id] ?? null,
@@ -292,12 +312,17 @@ export function Arena() {
   const turn = (() => {
     if (!hand) return { text: "Setting the table", progress: 0 };
     if (phase === "handDone") return { text: "Next hand", sub: "Space", progress: 100 };
-    if (phase === "stageCleared" || phase === "roundCleared") return { text: "Deal", sub: "Space", progress: 100, lime: true };
+    if (phase === "stageCleared" || phase === "roundCleared") return { text: "Deal", sub: "Space", progress: 100, gold: true };
     if (phase === "waitingBg") return { text: "Other tables", sub: bgJob ? `${bgJob.tablesDone}/${bgJob.total}` : "", progress: bgJob ? (bgJob.tablesDone / bgJob.total) * 100 : 0 };
-    if (yourTurn) return { text: "Your turn", progress: 100, lime: true };
+    if (yourTurn) return { text: "Your turn", progress: 100, gold: true };
     if (thinking) return { text: `${names.get(thinking)} is thinking`, progress: 100 };
     return { text: "Dealing", progress: 100 };
   })();
+
+  const banner = !hand ? null
+    : phase === "stageCleared" ? { key: `stage-${stageIdx}`, title: `Stage ${stageIdx + 1} cleared`, sub: `${STAGES[stageIdx + 1]} opponents next`, big: true }
+    : phase === "hand" && handNo >= 1 ? { key: `hand-${stageIdx}-${roundNo}-${handNo}`, title: `Hand ${handNo}`, sub: `Stage ${stageIdx + 1}, ${stageN} ${stageN === 1 ? "opponent" : "opponents"}${hand.handNo === 1 ? ", blinds rise every 8 hands" : ""}` }
+    : null;
 
   const presets = L ? [
     { label: "Min", to: L.minRaiseTo },
@@ -365,10 +390,11 @@ export function Arena() {
       {drawer === "log" && hand && (
         <aside className="drawer">
           <div className="drawer-head">Hand {hand.handNo}<button type="button" className="drawer-close" onClick={() => setDrawer(null)} aria-label="Close">×</button></div>
+          {hand.street !== "done" && <p className="drawer-copy">What Jev was thinking appears here once the hand is over, and in the review after the run.</p>}
           {bgTables.length > 0 && <p className="drawer-copy">{otherCount} opponents on {bgTables.length} other {bgTables.length === 1 ? "table" : "tables"}, played by Jev.{bgJob ? ` ${bgJob.tablesDone} of ${bgJob.total} finished.` : ""}</p>}
           <ul className="log-list num">
             {hand.log.map((e, i) => {
-              const d = decisions.current[i];
+              const d = hand.street === "done" ? decisions.current[i] : undefined;
               return (
                 <li key={i}>
                   <span><span className="log-street">{e.street}</span>{names.get(e.seat)} {e.action}{e.amount ? ` ${e.amount.toLocaleString()}` : ""}{e.note ? ` (${e.note.toLowerCase()})` : ""}</span>
@@ -385,11 +411,11 @@ export function Arena() {
   const overlay = (() => {
     if (avail && !avail.configured) return (
       <div className="window-center">
-        <Mark size={32} color="var(--lime)" />
+        <Mark size={32} color="var(--accent)" />
         <p>No OpenRouter key on this server. Add <code>OPENROUTER_API_KEY</code> to <code>.env.local</code> and restart. Every opponent is played through OpenRouter.</p>
       </div>
     );
-    if (!avail || !hand) return <div className="window-center"><Mark size={32} color="var(--lime)" /><p>Setting the table</p></div>;
+    if (!avail || !hand) return <div className="window-center"><Mark size={32} color="var(--accent)" /><p>Setting the table</p></div>;
     if (phase === "runOver") return (
       <Results stats={stats} onPlayAgain={restart} right={<><div className="results-right-head"><h3>Every decision, hand by hand</h3><span className="num">{runLog.length} {runLog.length === 1 ? "hand" : "hands"}</span></div><Review hands={runLog} /></>} />
     );
@@ -408,9 +434,11 @@ export function Arena() {
       board={hand?.board ?? []}
       handNo={handNo}
       seats={seats}
-      you={youSeat ? { id: PLAYER_ID, name: "You", model: "you", persona: { aggression: 1, bluff: 0, patience: 0 }, stack: youSeat.stack, bet: hand?.street === "done" ? 0 : youSeat.bet, folded: youSeat.folded, allIn: youSeat.allIn, out: false, hole: null, status: statuses[PLAYER_ID] ?? null, dealer: hand?.dealer === youIdx, turn: yourTurn, winner: Boolean(youWon) } : null}
+      you={youSeat ? { id: PLAYER_ID, name: "You", model: "you", persona: { aggression: 1, bluff: 0, patience: 0 }, mood: moodFor(PLAYER_ID, youSeat, statuses[PLAYER_ID]?.tone), stack: youSeat.stack, bet: hand?.street === "done" ? 0 : youSeat.bet, folded: youSeat.folded, allIn: youSeat.allIn, out: false, hole: null, status: statuses[PLAYER_ID] ?? null, dealer: hand?.dealer === youIdx, turn: yourTurn, winner: Boolean(youWon) } : null}
       hero={youSeat ? { hole: youSeat.hole, folded: youSeat.folded, winner: Boolean(youWon), outcome: youSeat.folded ? "Folded" : hand?.street === "done" ? (youWon ? (youWon.label ?? "You win") : heroEval) : null } : null}
       turn={turn}
+      highlight={highlight}
+      banner={banner}
       actions={actions}
       leftLinks={leftLinks}
       floating={floating}

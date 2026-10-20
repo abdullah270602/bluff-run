@@ -13,12 +13,13 @@ await page.goto(base + "/play", { waitUntil: "networkidle" });
 const handNo = async () => Number((await page.locator(".topbar-center").textContent())?.match(/hand (\d+)/)?.[1] || 0);
 const start = await handNo();
 const deadline = Date.now() + 75_000;
-let clicks = 0, shot = false;
+let clicks = 0, shot = false, showdown = false;
 while (Date.now() < deadline) {
   const act = page.getByRole("button", { name: /^(Check|Call)/ });
   if (await act.count()) { await act.first().click({ timeout: 800 }).catch(() => {}); clicks++; }
   const next = page.getByRole("button", { name: /^(Next hand|Deal)/ });
   if (await next.count()) await next.first().click({ timeout: 800 }).catch(() => {});
+  if (!showdown && (await page.locator(".seat-status.tone-win").count()) && (await page.locator(".seat-status.tone-plain:not(.empty)").count())) { await page.waitForTimeout(500); await page.screenshot({ path: "screenshots/showdown.png" }); showdown = true; }
   if (!shot && (await handNo()) >= 3) { await page.screenshot({ path: "screenshots/play-mid.png" }); shot = true; }
   if (await page.locator(".results").count()) break;
   await page.waitForTimeout(150);

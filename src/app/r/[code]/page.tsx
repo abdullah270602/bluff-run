@@ -23,7 +23,7 @@ export default async function SharePage({ params }: Props) {
   return (
     <div className="page-shell share-shell">
       <div className="intro-top">
-        <Link href="/" className="brand"><Mark color="var(--lime)" />Bluff Run</Link>
+        <Link href="/" className="brand"><Mark color="var(--accent)" />Bluff Run</Link>
         <nav className="intro-nav"><Link href="/play">Sit at the table</Link></nav>
       </div>
       <div className="poker-window">

@@ -11,9 +11,9 @@ import { encodeRun, type RunStats } from "@/game/share";
 
 const P = (s: string) => parseCard(s);
 const demoSeats: SeatVM[] = [
-  { id: "jev", name: "Jev", model: "jev", persona: { aggression: 0.58, bluff: 0.14, patience: 0.4 }, stack: 1840, bet: 60, folded: false, allIn: false, out: false, hole: null, status: { text: "Called", tone: "call" }, dealer: false, turn: false, winner: false },
+  { id: "jev", name: "Jev", model: "jev", persona: { aggression: 0.58, bluff: 0.14, patience: 0.4 }, mood: "idle", stack: 1840, bet: 60, folded: false, allIn: false, out: false, hole: null, status: { text: "Called", tone: "call" }, dealer: false, turn: false, winner: false },
 ];
-const demoYou: SeatVM = { id: "you", name: "You", model: "you", persona: { aggression: 1, bluff: 0, patience: 0 }, stack: 1940, bet: 60, folded: false, allIn: false, out: false, hole: null, status: null, dealer: true, turn: true, winner: false };
+const demoYou: SeatVM = { id: "you", name: "You", model: "you", persona: { aggression: 1, bluff: 0, patience: 0 }, mood: "idle", stack: 1940, bet: 60, folded: false, allIn: false, out: false, hole: null, status: null, dealer: true, turn: true, winner: false };
 
 function rounds(n: number) {
   const rows: { seats: number; others: number; tables: number }[] = [];
@@ -43,7 +43,7 @@ export default function Landing() {
     <div className="page-shell">
       <section className="intro">
         <div className="intro-top">
-          <span className="brand"><Mark color="var(--lime)" />Bluff Run</span>
+          <span className="brand"><Mark color="var(--accent)" />Bluff Run</span>
           <nav className="intro-nav" aria-label="Page">
             <a href="#table">Table</a>
             <a href="#loop">How it works</a>
@@ -70,7 +70,7 @@ export default function Landing() {
           seats={demoSeats}
           you={demoYou}
           hero={{ hole: [P("9h"), P("Qs")], folded: false, outcome: null, winner: false }}
-          turn={{ text: "Your turn", progress: 100, lime: true }}
+          turn={{ text: "Your turn", progress: 100, gold: true }}
           fit={{ min: 0.28 }}
           actions={<><span className="text-btn text-fold">Fold<span className="key">F</span></span><span className="text-btn text-raise">Raise<span className="key">R</span></span><span className="text-btn">Call 60<span className="key">C</span></span></>}
         />
@@ -99,7 +99,7 @@ export default function Landing() {
       </section>
 
       <footer className="site-foot">
-        <span className="brand" style={{ fontSize: 14 }}><Mark size={18} color="var(--lime)" />Bluff Run</span>
+        <span className="brand" style={{ fontSize: 14 }}><Mark size={18} color="var(--accent)" />Bluff Run</span>
         <span>How far can you go against AI?</span>
       </footer>
     </div>

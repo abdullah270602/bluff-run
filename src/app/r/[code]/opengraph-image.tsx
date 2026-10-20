@@ -40,16 +40,16 @@ export default async function Image({ params }: { params: Promise<{ code: string
                 width: "36px",
                 height: "36px",
                 borderRadius: "10px",
-                background: "#d7ff3f",
+                background: "#e3cf8e",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "#16200a",
+                color: "#0b1310",
                 fontWeight: 800,
                 fontSize: "20px",
               }}
             >
-              <svg width="24" height="24" viewBox="0 0 32 32" fill="#16200a">
+              <svg width="24" height="24" viewBox="0 0 32 32" fill="#0b1310">
                 <rect x="0" y="28" width="4" height="4" rx="1.1" />
                 <rect x="5" y="22.5" width="6" height="6" rx="1.6" />
                 <rect x="12" y="15" width="9" height="9" rx="2.3" />
@@ -65,7 +65,7 @@ export default async function Image({ params }: { params: Promise<{ code: string
               padding: "8px 20px",
               borderRadius: "999px",
               background: "rgba(215, 255, 63, 0.16)",
-              color: "#d7ff3f",
+              color: "#e3cf8e",
               fontSize: "18px",
               fontWeight: 700,
             }}
@@ -107,18 +107,18 @@ export default async function Image({ params }: { params: Promise<{ code: string
                       height: `${h}px`,
                       borderRadius: "12px",
                       background: cleared
-                        ? "#d7ff3f"
+                        ? "#e3cf8e"
                         : current
                           ? "rgba(215, 255, 63, 0.22)"
                           : "rgba(242, 238, 227, 0.08)",
-                      border: current ? "2px solid #d7ff3f" : "1px solid rgba(242, 238, 227, 0.14)",
+                      border: current ? "2px solid #e3cf8e" : "1px solid rgba(242, 238, 227, 0.14)",
                     }}
                   />
                   <span
                     style={{
                       fontSize: "18px",
                       fontWeight: 700,
-                      color: cleared || current ? "#d7ff3f" : "rgba(242, 238, 227, 0.45)",
+                      color: cleared || current ? "#e3cf8e" : "rgba(242, 238, 227, 0.45)",
                     }}
                   >
                     {n}

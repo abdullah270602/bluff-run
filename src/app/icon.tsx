@@ -17,7 +17,7 @@ export default function Icon() {
           justifyContent: "center",
         }}
       >
-        <svg width="42" height="42" viewBox="0 0 32 32" fill="#d7ff3f">
+        <svg width="42" height="42" viewBox="0 0 32 32" fill="#e3cf8e">
           <rect x="0" y="28" width="4" height="4" rx="1.1" />
           <rect x="5" y="22.5" width="6" height="6" rx="1.6" />
           <rect x="12" y="15" width="9" height="9" rx="2.3" />
