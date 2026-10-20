@@ -41,6 +41,8 @@ function step(s: Spring, f: number, damping: number, dt: number) {
 }
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 const K = 0.42; // the reference moves in a 229-unit box; ours is 120
+const pointer = { x: -9999, y: -9999, at: 0 };
+if (typeof window !== "undefined") window.addEventListener("pointermove", (e) => { pointer.x = e.clientX; pointer.y = e.clientY; pointer.at = performance.now(); }, { passive: true });
 
 export function Bot({ id, variant = 0, light = false, mood = "idle", className = "" }: { id: string; variant?: number; light?: boolean; mood?: Mood; className?: string }) {
   const ref = useRef<SVGSVGElement>(null);
@@ -56,10 +58,12 @@ export function Bot({ id, variant = 0, light = false, mood = "idle", className =
     const lids = Array.from(svg.querySelectorAll<SVGElement>("[data-lid]"));
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    const S = { rot: spring(0), x: spring(0), y: spring(0), sy: spring(1), open: spring(1), size: spring(1), aimX: spring(0), aimY: spring(0), happy: spring(0) };
+    const S = { rot: spring(0), x: spring(0), y: spring(0), sy: spring(1), sx: spring(1), open: spring(1), size: spring(1), aimX: spring(0), aimY: spring(0), happy: spring(0) };
     const t0 = performance.now() - Math.random() * 10000;
     let last = performance.now(), moodSince = last, lastMood: Mood = moodRef.current;
     let blinkNext = last + rnd(1800, 4500), blinkUntil = 0, winkEye = -1, winkUntil = 0, gazeNext = 0, raf = 0, hidden = false;
+    let hovered = false, hoverSince = 0, rect: DOMRect | null = null, rectAt = 0;
+    const phase = Math.random() * Math.PI * 2;
 
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame);
@@ -84,6 +88,35 @@ export function Bot({ id, variant = 0, light = false, mood = "idle", className =
         case "win": { const w = Math.sin(2.4 * t); rot = 3 * Math.sin(1.2 * t); x = 2.5 * Math.sin(1.1 * t); y = -3 * Math.abs(w); sy = 1 + 0.02 * w; size = 1.05; happy = 1; break; }
         case "out": rot = 4 + 2 * Math.sin(0.25 * t); x = -2; y = 8 + 3 * Math.sin(0.55 * t); sy = 1 + 0.016 * Math.sin(0.55 * t); open = 0.08; break;
       }
+      // a slow float and a breath, in every state, volume-preserving
+      y += 1.6 * Math.sin(0.9 * t + phase) + 0.6 * Math.sin(0.37 * t);
+      const breath = 0.012 * Math.sin(1.1 * t + phase);
+      sy += breath;
+      let sx = 1 - breath * 0.7;
+
+      // pointer: gaze follows the cursor when it is near; hovering lifts and perks the bot up
+      let pointerAim: [number, number] | null = null;
+      if (now - pointer.at < 4000) {
+        if (now - rectAt > 250) { rect = svg.getBoundingClientRect(); rectAt = now; }
+        if (rect) {
+          const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+          const dx = pointer.x - cx, dy = pointer.y - cy, dist = Math.hypot(dx, dy);
+          const reach = Math.max(rect.width * 4, 320);
+          if (dist < reach) pointerAim = [Math.max(-1, Math.min(1, dx / reach * 2.2)) * 15 * K, Math.max(-1, Math.min(1, dy / reach * 2.2)) * 9 * K];
+          const over = dist < rect.width * 0.62;
+          if (over && !hovered) { hovered = true; hoverSince = now; S.y.v -= 40; }
+          if (!over) hovered = false;
+          if (hovered && m !== "out" && m !== "fold") {
+            const settle = Math.min((now - hoverSince) / 600, 1);
+            y -= 3 + 1.5 * Math.sin(2.2 * t);
+            size = Math.max(size, 1.08);
+            sx += 0.03 * settle; sy -= 0.02 * settle;
+            rot += Math.max(-5, Math.min(5, dx / rect.width * 8));
+            open = Math.max(open, 1.04);
+          }
+        }
+      }
+
       // gaze drift
       if (now >= gazeNext) {
         const dir = Math.random() < 0.5 ? -1 : 1;
@@ -101,15 +134,16 @@ export function Bot({ id, variant = 0, light = false, mood = "idle", className =
       if (m !== "out" && m !== "fold" && now >= blinkNext) { blinkUntil = now + 95; blinkNext = now + rnd(2200, 5200); if ((m === "idle" || m === "win") && Math.random() < 0.18) { winkEye = Math.random() < 0.5 ? 0 : 1; winkUntil = now + 260; } }
       const blinking = now < blinkUntil;
 
-      S.rot.t = rot * Math.PI / 180; S.x.t = x * K; S.y.t = y * K; S.sy.t = sy; S.open.t = blinking ? 0.06 : open; S.size.t = size; S.happy.t = happy;
+      if (pointerAim) { S.aimX.t = pointerAim[0]; S.aimY.t = pointerAim[1]; gazeNext = Math.max(gazeNext, now + 400); }
+      S.rot.t = rot * Math.PI / 180; S.x.t = x * K; S.y.t = y * K; S.sy.t = sy; S.open.t = blinking ? 0.06 : open; S.size.t = size; S.happy.t = happy; S.sx.t = sx;
       const n = Math.max(1, Math.ceil(dt / FIXED)), h = dt / n;
       for (let i = 0; i < n; i++) {
-        step(S.rot, 5, 0.9, h); step(S.x, 3.5, 1, h); step(S.y, 4, 1, h); step(S.sy, 10, 0.8, h);
+        step(S.rot, 5, 0.9, h); step(S.x, 3.5, 1, h); step(S.y, 4, 1, h); step(S.sy, 10, 0.8, h); step(S.sx, 10, 0.8, h);
         step(S.open, 26, 1, h); step(S.size, 9, 0.85, h); step(S.aimX, 13, 1, h); step(S.aimY, 13, 1, h); step(S.happy, 8, 1, h);
       }
-      if (reduce) { S.rot.x = 0; S.x.x = 0; S.y.x = 0; S.sy.x = 1; S.open.x = open; S.size.x = size; S.aimX.x = 0; S.aimY.x = 0; S.happy.x = happy; }
+      if (reduce) { S.rot.x = 0; S.x.x = 0; S.y.x = 0; S.sy.x = 1; S.sx.x = 1; S.open.x = open; S.size.x = size; S.aimX.x = 0; S.aimY.x = 0; S.happy.x = happy; }
 
-      head.setAttribute("transform", `translate(${60 + S.x.x} ${60 + S.y.x}) rotate(${(S.rot.x * 180) / Math.PI}) scale(1 ${S.sy.x}) translate(-60 -60)`);
+      head.setAttribute("transform", `translate(${60 + S.x.x} ${60 + S.y.x}) rotate(${(S.rot.x * 180) / Math.PI}) scale(${S.sx.x} ${S.sy.x}) translate(-60 -60)`);
       eyes.forEach((eye, i) => {
         const wink = now < winkUntil && winkEye === i;
         const o = Math.max(0.04, wink ? 0.06 : S.open.x);
