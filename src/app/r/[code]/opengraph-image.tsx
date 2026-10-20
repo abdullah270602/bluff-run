@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 import { STAGES } from "@/game/run";
 import { decodeRun, emptyStats } from "@/game/share";
 
-export const alt = "Bluff Run — AI Poker Challenge Summary";
+export const alt = "Bluff Run result";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -49,7 +49,12 @@ export default async function Image({ params }: { params: Promise<{ code: string
                 fontSize: "20px",
               }}
             >
-              ↗
+              <svg width="24" height="24" viewBox="0 0 32 32" fill="#16200a">
+                <rect x="0" y="28" width="4" height="4" rx="1.1" />
+                <rect x="5" y="22.5" width="6" height="6" rx="1.6" />
+                <rect x="12" y="15" width="9" height="9" rx="2.3" />
+                <rect x="19" y="4" width="13" height="13" rx="3.2" />
+              </svg>
             </div>
             <span style={{ fontSize: "28px", fontWeight: 700, letterSpacing: "-0.02em" }}>
               Bluff Run
@@ -63,10 +68,9 @@ export default async function Image({ params }: { params: Promise<{ code: string
               color: "#d7ff3f",
               fontSize: "18px",
               fontWeight: 700,
-              letterSpacing: "0.06em",
             }}
           >
-            HOW FAR CAN YOU GO AGAINST AI?
+            How far can you go against AI?
           </span>
         </div>
 
@@ -77,7 +81,7 @@ export default async function Image({ params }: { params: Promise<{ code: string
               {headline}
             </div>
             <div style={{ fontSize: "26px", color: "rgba(242, 238, 227, 0.72)" }}>
-              {stats.beaten} AI opponents eliminated across {stats.hands} hands
+              {stats.beaten} AI opponents beaten over {stats.hands} hands
             </div>
           </div>
 
@@ -135,28 +139,28 @@ export default async function Image({ params }: { params: Promise<{ code: string
           }}
         >
           <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
-            <span style={{ fontSize: "15px", color: "rgba(242, 238, 227, 0.5)", textTransform: "uppercase" }}>
-              Stages Cleared
+            <span style={{ fontSize: "15px", color: "rgba(242, 238, 227, 0.5)" }}>
+              Stages cleared
             </span>
             <span style={{ fontSize: "30px", fontWeight: 700 }}>{stats.cleared} / 8</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
-            <span style={{ fontSize: "15px", color: "rgba(242, 238, 227, 0.5)", textTransform: "uppercase" }}>
-              AI Eliminated
+            <span style={{ fontSize: "15px", color: "rgba(242, 238, 227, 0.5)" }}>
+              Opponents beaten
             </span>
             <span style={{ fontSize: "30px", fontWeight: 700 }}>{stats.beaten}</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
-            <span style={{ fontSize: "15px", color: "rgba(242, 238, 227, 0.5)", textTransform: "uppercase" }}>
-              Biggest Pot
+            <span style={{ fontSize: "15px", color: "rgba(242, 238, 227, 0.5)" }}>
+              Biggest pot
             </span>
             <span style={{ fontSize: "30px", fontWeight: 700 }}>{stats.biggestPot.toLocaleString()}</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", flex: 1.4 }}>
-            <span style={{ fontSize: "15px", color: "rgba(242, 238, 227, 0.5)", textTransform: "uppercase" }}>
-              Best Hand
+            <span style={{ fontSize: "15px", color: "rgba(242, 238, 227, 0.5)" }}>
+              Best hand
             </span>
-            <span style={{ fontSize: "26px", fontWeight: 700 }}>{stats.bestHand || "Uncontested"}</span>
+            <span style={{ fontSize: "26px", fontWeight: 700 }}>{stats.bestHand || "No showdowns"}</span>
           </div>
         </div>
       </div>

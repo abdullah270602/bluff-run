@@ -13,13 +13,13 @@ export async function generateMetadata({ params }: SharePageProps): Promise<Meta
   const { code } = await params;
   const stats = decodeRun(code);
   if (!stats) {
-    return { title: "Bluff Run — AI Poker Gauntlet" };
+    return { title: "Bluff Run" };
   }
   const stageNum = STAGES[Math.min(STAGES.length - 1, Math.max(0, stats.stageIdx))];
   const title = stats.won
-    ? `Bluff Run — Cleared all 8 stages (${stats.beaten} AI beaten)`
-    : `Bluff Run — Reached Stage ${stageNum} (${stats.beaten} AI beaten)`;
-  const description = `Survived ${stats.hands} hands · Biggest pot: ${stats.biggestPot.toLocaleString()} · Best hand: ${stats.bestHand || "Uncontested"}. How far can you go against AI?`;
+    ? `Bluff Run: cleared all 8 stages, ${stats.beaten} AI opponents beaten`
+    : `Bluff Run: reached stage ${stageNum}, ${stats.beaten} AI opponents beaten`;
+  const description = `${stats.hands} hands, biggest pot ${stats.biggestPot.toLocaleString()}${stats.bestHand ? `, best hand ${stats.bestHand.toLowerCase()}` : ""}. How far can you go against AI?`;
 
   return {
     title,
@@ -46,7 +46,7 @@ export default async function ShareRunPage({ params }: SharePageProps) {
       <header className="site-nav">
         <Logo />
         <Link href="/play" className="btn btn-primary btn-sm">
-          Play Bluff Run →
+          Sit down
         </Link>
       </header>
 

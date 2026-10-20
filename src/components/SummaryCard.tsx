@@ -27,13 +27,13 @@ export function SummaryCard({ stats, isShareView = false, onPlayAgain }: Summary
       i < stats.cleared ? "■" : i === stats.stageIdx && !stats.won ? "▣" : "□"
     ).join(" ");
     const headline = stats.won
-      ? `Bluff Run — Cleared all 8 stages (${stats.beaten} AI beaten)`
-      : `Bluff Run — Reached Stage ${stageNumber} (${stats.beaten} AI beaten)`;
+      ? `Bluff Run: cleared all 8 stages, ${stats.beaten} AI opponents beaten`
+      : `Bluff Run: reached stage ${stageNumber}, ${stats.beaten} AI opponents beaten`;
     return [
       headline,
-      `${blocks}  [1 → 100]`,
-      `Hands: ${stats.hands} · Biggest pot: ${stats.biggestPot.toLocaleString()} · Best hand: ${stats.bestHand || "—"}`,
-      `Beat my run: ${getShareUrl()}`,
+      `${blocks}  1 to 100`,
+      `${stats.hands} hands, biggest pot ${stats.biggestPot.toLocaleString()}${stats.bestHand ? `, best hand ${stats.bestHand.toLowerCase()}` : ""}`,
+      `Beat it: ${getShareUrl()}`,
     ].join("\n");
   };
 
@@ -64,10 +64,10 @@ export function SummaryCard({ stats, isShareView = false, onPlayAgain }: Summary
       : `Fell at Stage ${stageNumber}.`;
 
   const subline = stats.won
-    ? "You outlasted every AI opponent across all eight stages of the gauntlet."
+    ? "Every stage cleared. One hundred opponents, none left standing."
     : stats.cleared === 0
-      ? "Jev defended the opening heads-up table. The ladder awaits a rematch."
-      : `Cleared ${stats.cleared} of ${STAGES.length} stages (${STAGES.slice(0, stats.cleared).join(" → ")}) before busting at Stage ${stageNumber}.`;
+      ? "Jev held the first table. The ladder is still there."
+      : `Cleared ${stats.cleared} of ${STAGES.length} stages before the stack went at stage ${stageNumber}.`;
 
   return (
     <section className="summary-card" aria-label="Run Summary">
@@ -75,7 +75,7 @@ export function SummaryCard({ stats, isShareView = false, onPlayAgain }: Summary
         <div className="summary-badge-row">
           <span className={`summary-pill ${stats.won ? "summary-pill-won" : ""}`}>
             <Mark size={16} color="currentColor" />
-            <span>{stats.won ? "GAUNTLET CLEARED" : isShareView ? "CHALLENGE RECORD" : "RUN COMPLETE"}</span>
+            <span>{stats.won ? "All 100 beaten" : isShareView ? "Shared run" : "Run over"}</span>
           </span>
           {stats.date && <span className="summary-date num">{stats.date}</span>}
         </div>
@@ -117,11 +117,11 @@ export function SummaryCard({ stats, isShareView = false, onPlayAgain }: Summary
           </strong>
         </div>
         <div className="metric-box">
-          <span className="metric-label">AI opponents beaten</span>
+          <span className="metric-label">Opponents beaten</span>
           <strong className="metric-val num">{stats.beaten}</strong>
         </div>
         <div className="metric-box">
-          <span className="metric-label">Hands survived</span>
+          <span className="metric-label">Hands played</span>
           <strong className="metric-val num">{stats.hands}</strong>
         </div>
         <div className="metric-box">
@@ -129,8 +129,8 @@ export function SummaryCard({ stats, isShareView = false, onPlayAgain }: Summary
           <strong className="metric-val num">{stats.biggestPot.toLocaleString()}</strong>
         </div>
         <div className="metric-box metric-box-wide">
-          <span className="metric-label">Signature hand</span>
-          <strong className="metric-val">{stats.bestHand || "Uncontested pots"}</strong>
+          <span className="metric-label">Best hand</span>
+          <strong className="metric-val">{stats.bestHand || "No showdowns"}</strong>
         </div>
       </div>
 
@@ -138,25 +138,25 @@ export function SummaryCard({ stats, isShareView = false, onPlayAgain }: Summary
       <div className="summary-actions">
         {onPlayAgain ? (
           <button type="button" className="btn btn-primary" onClick={onPlayAgain}>
-            Run It Back →
+            Play again
           </button>
         ) : (
           <Link href="/play" className="btn btn-primary">
-            {isShareView ? "Beat This Run →" : "Start New Run →"}
+            {isShareView ? "Beat this run" : "New run"}
           </Link>
         )}
 
         <button type="button" className="btn btn-ghost" onClick={copyText}>
-          {copiedMode === "text" ? "Copied Summary ✓" : "Share Summary"}
+          {copiedMode === "text" ? "Copied" : "Copy summary"}
         </button>
 
         <button type="button" className="btn btn-ghost" onClick={copyLink}>
-          {copiedMode === "link" ? "Link Copied ✓" : "Copy Share Link"}
+          {copiedMode === "link" ? "Copied" : "Copy link"}
         </button>
 
         {!isShareView && (
           <Link href={`/r/${code}`} className="btn btn-ghost">
-            Permalink ↗
+            Open share page
           </Link>
         )}
       </div>

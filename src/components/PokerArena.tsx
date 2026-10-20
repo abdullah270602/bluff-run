@@ -189,10 +189,10 @@ export function PokerArena() {
     if (a.type === "fold") return { label: "Fold", tone: "fold" };
     if (a.type === "check") return { label: "Check", tone: "neutral" };
     if (a.type === "call") {
-      return { label: seatStackAfter === 0 ? "All-In Call" : "Call", tone: "call" };
+      return { label: seatStackAfter === 0 ? "All-in call" : "Call", tone: "call" };
     }
     return {
-      label: seatStackAfter === 0 ? `All-In ${a.to.toLocaleString()}` : `Raise ${a.to.toLocaleString()}`,
+      label: seatStackAfter === 0 ? `All in ${a.to.toLocaleString()}` : `Raise to ${a.to.toLocaleString()}`,
       tone: "raise",
     };
   };
@@ -462,7 +462,7 @@ export function PokerArena() {
     return (
       <div className="arena-loading">
         <Mark size={36} color="var(--signal)" />
-        <p>Setting the felt…</p>
+        <p>Setting the table</p>
       </div>
     );
   }
@@ -475,6 +475,8 @@ export function PokerArena() {
   const stageOpponentsTotal = STAGES[stageIdx];
   const otherFieldCount = bgTables.reduce((acc, t) => acc + t.length, 0);
   const handsUntilBlindUp = HANDS_PER_LEVEL - ((tableHandNo - 1) % HANDS_PER_LEVEL);
+  const liveBrain = (o?: Opponent) => !o ? "house" : (o.brain === "jev" && !avail.jev) || (o.brain === "claude" && !avail.claude) || fallbackBrains[o.id] ? "house" : o.brain;
+  const liveLabelNote = tableOpps[0] && liveBrain(tableOpps[0]) !== tableOpps[0].brain ? " (house engine, no key)" : "";
 
   // Live hand evaluation helper for hero's cards
   const heroHandLabel =
@@ -503,14 +505,14 @@ export function PokerArena() {
           <div className="hud-stage-meta">
             <span className="hud-stage-title num">
               Stage {stageOpponentsTotal}
-              {totalRounds > 1 ? ` · Round ${roundNo}/${totalRounds}` : ""}
+              {totalRounds > 1 ? `, round ${roundNo} of ${totalRounds}` : ""}
             </span>
             <span className="hud-stage-sub num">
               {stageOpponentsTotal === 1
-                ? "Heads-Up vs. Jev"
+                ? `Heads-up against ${tableOpps[0]?.name ?? "Jev"}${liveLabelNote}`
                 : otherFieldCount > 0
-                  ? `Your table + ${otherFieldCount} AI across ${bgTables.length} parallel ${bgTables.length === 1 ? "table" : "tables"}`
-                  : `${tableOpps.length} AI opponents at this table`}
+                  ? `${tableOpps.length} at your table, ${otherFieldCount} on ${bgTables.length} other ${bgTables.length === 1 ? "table" : "tables"}`
+                  : `${tableOpps.length} opponents at this table`}
             </span>
           </div>
         </div>
@@ -521,11 +523,11 @@ export function PokerArena() {
 
         <div className="hud-right">
           <div className="hud-blinds num" title={`Blinds rise every ${HANDS_PER_LEVEL} hands`}>
-            <span className="hud-blinds-label">Hand #{tableHandNo}</span>
+            <span className="hud-blinds-label">Hand {tableHandNo}</span>
             <span className="hud-blinds-val">
               {hand.sb}/{hand.bb}
             </span>
-            <span className="hud-blinds-next">↑ in {handsUntilBlindUp}h</span>
+            <span className="hud-blinds-next">up in {handsUntilBlindUp}</span>
           </div>
 
           <button
@@ -534,7 +536,7 @@ export function PokerArena() {
             onClick={() => setFastMode((v) => !v)}
             title="Toggle AI turn speed"
           >
-            {fastMode ? "⚡ Fast" : "Normal"}
+            {fastMode ? "Fast" : "Normal"}
           </button>
 
           <button
@@ -622,25 +624,25 @@ export function PokerArena() {
                     <div className="opp-capsule">
                       <div className="opp-top-row">
                         <span className="opp-name">{opp.name}</span>
-                        <span
+                        {opp.brain !== "house" && <span
                           className={`opp-brain-tag brain-${isFallback ? "house" : opp.brain}`}
                           title={
-                            isFallback && opp.brain !== "house"
-                              ? `${BRAIN_LABEL[opp.brain]} key not configured — running House engine`
+                            isFallback
+                              ? `${BRAIN_LABEL[opp.brain]} key not configured, running the house engine`
                               : `${BRAIN_LABEL[opp.brain]} (${styleTag})`
                           }
                         >
-                          {isFallback && opp.brain !== "house" ? `${opp.brain.toUpperCase()}·H` : opp.brain.toUpperCase()}
-                        </span>
+                          {isFallback ? "house engine" : BRAIN_LABEL[opp.brain]}
+                        </span>}
                       </div>
 
                       <div className="opp-bottom-row num">
                         {isEliminated ? (
-                          <span className="opp-busted-label">ELIMINATED</span>
+                          <span className="opp-busted-label">Out</span>
                         ) : (
                           <>
                             <span className="opp-stack">{liveSeat.stack.toLocaleString()}</span>
-                            {liveSeat.allIn && <span className="opp-allin-tag">ALL-IN</span>}
+                            {liveSeat.allIn && <span className="opp-allin-tag">All in</span>}
                           </>
                         )}
                       </div>
@@ -661,7 +663,7 @@ export function PokerArena() {
                         </span>
                       )}
                       {isThinking ? (
-                        <span className="action-tag tone-thinking">Thinking…</span>
+                        <span className="action-tag tone-thinking">Thinking</span>
                       ) : (
                         actionBadge && (
                           <span
@@ -690,9 +692,9 @@ export function PokerArena() {
                 <span className="street-pill">
                   {hand.street === "done"
                     ? hand.result?.showdown
-                      ? "SHOWDOWN"
-                      : "HAND COMPLETE"
-                    : hand.street.toUpperCase()}
+                      ? "Showdown"
+                      : "Hand over"
+                    : hand.street[0].toUpperCase() + hand.street.slice(1)}
                 </span>
                 <div className="pot-readout num">
                   <span className="pot-label">Pot</span>
@@ -740,7 +742,7 @@ export function PokerArena() {
                         <span key={w.seat} className="winner-line num">
                           <strong>{wName}</strong> {w.seat === PLAYER_ID ? "win" : "wins"}{" "}
                           <span className="winner-amt">+{w.amount.toLocaleString()}</span>
-                          {w.label ? ` · ${w.label}` : ""}
+                          {w.label ? ` with ${w.label.toLowerCase()}` : ""}
                         </span>
                       );
                     })}
@@ -761,14 +763,14 @@ export function PokerArena() {
               exit={{ opacity: 0, x: 20 }}
             >
               <div className="drawer-header">
-                <h3>Hand #{hand.handNo} Log</h3>
+                <h3>Hand {hand.handNo}</h3>
                 <button type="button" onClick={() => setShowLog(false)}>
                   Close
                 </button>
               </div>
               {bgTables.length > 0 && (
                 <div className="drawer-bracket">
-                  <span className="drawer-kicker">PARALLEL SHOOTOUT TABLES</span>
+                  <span className="drawer-kicker">Other tables</span>
                   <p>
                     {bgTables.length} background {bgTables.length === 1 ? "table" : "tables"} ({otherFieldCount} AI)
                     playing down to {bgWinners.length} round {bgWinners.length === 1 ? "winner" : "winners"}.
@@ -816,7 +818,7 @@ export function PokerArena() {
 
           <div className="hero-meta">
             <div className="hero-name-row">
-              <span className="hero-you-badge">YOU</span>
+              <span className="hero-you-badge">You</span>
               {youIndex >= 0 && hand.dealer === youIndex && (
                 <span className="dealer-puck" title="You have the Dealer Button">
                   D
@@ -825,7 +827,7 @@ export function PokerArena() {
               {youSeat && youSeat.bet > 0 && hand.street !== "done" && (
                 <span className="chip-pill num">
                   <span className="chip-dot" />
-                  In front: {youSeat.bet.toLocaleString()}
+                  {youSeat.bet.toLocaleString()} in front
                 </span>
               )}
               {seatActions[PLAYER_ID] && (
@@ -857,7 +859,7 @@ export function PokerArena() {
                     {[
                       { label: "Min", val: youLegal.minRaiseTo },
                       {
-                        label: "½ Pot",
+                        label: "Half pot",
                         val: Math.round(hand.currentBet + (currentPot + youLegal.toCall) * 0.5),
                       },
                       {
@@ -865,10 +867,10 @@ export function PokerArena() {
                         val: Math.round(hand.currentBet + currentPot + youLegal.toCall),
                       },
                       {
-                        label: "2× Pot",
+                        label: "2x pot",
                         val: Math.round(hand.currentBet + (currentPot + youLegal.toCall) * 2),
                       },
-                      { label: "All-In", val: youLegal.maxRaiseTo },
+                      { label: "All in", val: youLegal.maxRaiseTo },
                     ].map((preset) => {
                       const clamped = Math.max(
                         youLegal.minRaiseTo,
@@ -905,16 +907,14 @@ export function PokerArena() {
 
               {/* Primary Action Buttons */}
               <div className="action-buttons">
-                <button
+                {!youLegal.canCheck && <button
                   type="button"
                   className="act-btn act-fold"
-                  onClick={() =>
-                    handlePlayerAction(youLegal.canCheck ? { type: "check" } : { type: "fold" })
-                  }
+                  onClick={() => handlePlayerAction({ type: "fold" })}
                 >
-                  <span>{youLegal.canCheck ? "Check" : "Fold"}</span>
+                  <span>Fold</span>
                   <kbd>F</kbd>
-                </button>
+                </button>}
 
                 {!youLegal.canCheck && (
                   <button
@@ -924,7 +924,7 @@ export function PokerArena() {
                   >
                     <span>
                       {youLegal.toCall >= (youSeat?.stack ?? 0)
-                        ? `Call All-In (${youLegal.toCall.toLocaleString()})`
+                        ? `Call all in (${youLegal.toCall.toLocaleString()})`
                         : `Call ${youLegal.toCall.toLocaleString()}`}
                     </span>
                     <kbd>C</kbd>
@@ -950,7 +950,7 @@ export function PokerArena() {
                   >
                     <span>
                       {raiseAmount >= youLegal.maxRaiseTo
-                        ? `All-In ${youLegal.maxRaiseTo.toLocaleString()}`
+                        ? `All in ${youLegal.maxRaiseTo.toLocaleString()}`
                         : `${hand.currentBet === 0 ? "Bet" : "Raise to"} ${raiseAmount.toLocaleString()}`}
                     </span>
                     <kbd>R</kbd>
@@ -963,7 +963,7 @@ export function PokerArena() {
               {youSeat && youSeat.stack > 0 && liveSeats(hand).length > 1 ? (
                 <>
                   <button type="button" className="btn btn-primary" onClick={dealNextHand}>
-                    Next Hand <kbd className="kbd-inline">Space</kbd>
+                    Next hand <kbd className="kbd-inline">Space</kbd>
                   </button>
                   <label className="autodeal-toggle">
                     <input
@@ -971,19 +971,19 @@ export function PokerArena() {
                       checked={autoDeal}
                       onChange={(e) => setAutoDeal(e.target.checked)}
                     />
-                    <span>Auto-deal</span>
+                    <span>Deal automatically</span>
                   </label>
                 </>
               ) : (
-                <span className="status-wait-pill">Settling table…</span>
+                <span className="status-wait-pill">Settling the table</span>
               )}
             </div>
           ) : (
             <div className="between-hand-bar">
               <span className="status-wait-pill">
                 {thinkingSeat
-                  ? `${namesMap.get(thinkingSeat) ?? "AI"} is deciding…`
-                  : "Waiting for table action…"}
+                  ? `${namesMap.get(thinkingSeat) ?? "Opponent"} is deciding`
+                  : "Waiting on the table"}
               </span>
             </div>
           )}
@@ -1005,13 +1005,12 @@ export function PokerArena() {
               animate={{ scale: 1, y: 0 }}
             >
               <span className="modal-kicker num">
-                STAGE {stageOpponentsTotal} · ROUND {roundNo} OF {totalRounds} CLEARED
+                Stage {stageOpponentsTotal}, round {roundNo} of {totalRounds}
               </span>
               <h2>Your table is clear.</h2>
               <p>
-                While you won your table, {otherFieldCount} AI opponents battled across{" "}
-                {bgTables.length} parallel {bgTables.length === 1 ? "table" : "tables"}. Their
-                winners now advance to face you with fresh 2,000-chip stacks.
+                While you played, {otherFieldCount} opponents fought it out on {bgTables.length} other{" "}
+                {bgTables.length === 1 ? "table" : "tables"}. The {bgWinners.length === 1 ? "winner comes" : "winners come"} back for you, everyone on fresh 2,000-chip stacks.
               </p>
 
               <div className="survivor-chips">
@@ -1029,7 +1028,7 @@ export function PokerArena() {
                   className="btn btn-primary"
                   onClick={() => startRoundTable(bgWinners, roundNo + 1, stageIdx)}
                 >
-                  Deal Round {roundNo + 1} (vs {bgWinners.length} {bgWinners.length === 1 ? "winner" : "winners"}) →
+                  Deal round {roundNo + 1}
                 </button>
               </div>
             </motion.div>
@@ -1051,12 +1050,10 @@ export function PokerArena() {
               initial={{ scale: 0.95, y: 12 }}
               animate={{ scale: 1, y: 0 }}
             >
-              <span className="modal-kicker num">STAGE {stageOpponentsTotal} CLEARED</span>
-              <h2>The field doubles: {STAGES[stageIdx + 1]} AI opponents next.</h2>
+              <span className="modal-kicker num">Stage {stageOpponentsTotal} cleared</span>
+              <h2>The field doubles. {STAGES[stageIdx + 1]} opponents next.</h2>
               <p>
-                You eliminated all {stageOpponentsTotal}{" "}
-                {stageOpponentsTotal === 1 ? "opponent" : "opponents"} in Stage {stageOpponentsTotal}.
-                Stacks reset to {START_STACK.toLocaleString()} for the next rung on the ladder.
+                You took every chip from {stageOpponentsTotal === 1 ? "Jev" : `all ${stageOpponentsTotal} opponents`}. Stacks reset to {START_STACK.toLocaleString()} for the next stage.
               </p>
 
               <div className="modal-ladder-wrap">
@@ -1069,7 +1066,7 @@ export function PokerArena() {
                   className="btn btn-primary"
                   onClick={() => startStage(stageIdx + 1, avail)}
                 >
-                  Deal Stage {STAGES[stageIdx + 1]} →
+                  Deal stage {STAGES[stageIdx + 1]}
                 </button>
                 <a
                   href={`/r/${encodeRun({ ...stats, cleared: stageIdx + 1 })}`}
@@ -1077,7 +1074,7 @@ export function PokerArena() {
                   rel="noreferrer"
                   className="btn btn-ghost"
                 >
-                  Share Progress ↗
+                  Share progress
                 </a>
               </div>
             </motion.div>
