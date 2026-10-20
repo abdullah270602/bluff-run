@@ -15,8 +15,8 @@ export interface SeatVM {
 }
 export interface HeroVM { hole: Card[]; folded: boolean; outcome: string | null; winner: boolean }
 export interface WindowProps {
-  centerLabel: string;
-  counter: { n: number; unit: string };
+  stage: { n: number; hand: number; round?: string };
+  counter: { n: number; name: string };
   blinds: string;
   pot: number;
   potLabel: string;
@@ -29,6 +29,8 @@ export interface WindowProps {
   hero: HeroVM | null;
   /** Winning five at showdown: everything else dims. */
   highlight?: Set<Card> | null;
+  /** Showdown: whose cards travel to the board. */
+  reveal?: { seatId: string; hole: Card[]; heroWon: boolean } | null;
   banner?: { key: string; title: string; sub?: string; big?: boolean } | null;
   turn: { text: string; sub?: string; progress: number; gold?: boolean };
   actions?: ReactNode;
@@ -63,11 +65,11 @@ const StackIcon = () => (
   </svg>
 );
 
-export function Seat({ s, compact, pos, you = false, highlight }: { s: SeatVM; compact: boolean; pos: Pos; you?: boolean; highlight?: Set<Card> | null }) {
+export function Seat({ s, compact, pos, you = false, highlight, hideCards = false }: { s: SeatVM; compact: boolean; pos: Pos; you?: boolean; highlight?: Set<Card> | null; hideCards?: boolean }) {
   const style = pos.side === "l" ? { left: pos.x, top: pos.y } : { right: pos.x, top: pos.y };
   const showCards = !you && !s.out && !s.folded;
   return (
-    <div className={`seat ${pos.side === "l" ? "seat-left" : "seat-right"} ${compact ? "compact" : ""} ${you ? "seat-you" : ""} ${s.out ? "out" : ""} ${s.turn ? "turn" : ""} ${s.winner ? "winner" : ""}`} style={style}>
+    <div className={`seat ${pos.side === "l" ? "seat-left" : "seat-right"} ${compact ? "compact" : ""} ${you ? "seat-you" : ""} ${s.out ? "out" : ""} ${s.turn ? "turn" : ""} ${s.winner ? "winner" : ""} ${hideCards ? "hidden-cards" : ""}`} style={style}>
       <div className={`seat-status tone-${s.status?.tone ?? "plain"} ${s.status ? "" : "empty"}`} key={s.status?.text ?? ""}>{s.status?.text ?? " "}</div>
       <div className="avatar-wrap">
         <div className="avatar"><Character id={s.id} model={s.model} mood={s.mood} /></div>
@@ -102,9 +104,15 @@ export function TableWindow(p: WindowProps) {
         <div className="topbar-left">
           <a href="/" className="brand" aria-label="Bluff Run home"><Mark color="var(--accent)" />Bluff Run</a>
         </div>
-        <div className="topbar-center num" key={p.centerLabel}>{p.centerLabel}</div>
+        <div className="topbar-center">
+          <div className="stage-pill num" key={`${p.stage.n}-${p.stage.hand}`}>
+            <span className="stage-badge">Stage {p.stage.n}</span>
+            {p.stage.round && <><span>{p.stage.round}</span><span className="sep">·</span></>}
+            <span>Hand {p.stage.hand}</span>
+          </div>
+        </div>
         <div className="topbar-right">
-          <div className="counter num" title="Opponents in this stage"><Mark size={14} color="var(--gold)" /><strong>{p.counter.n}</strong><span>{p.counter.unit}</span></div>
+          <div className="counter num" title="Opponents in this stage"><Mark size={14} color="var(--gold)" /><strong>{p.counter.name}</strong><span>×{p.counter.n}</span></div>
           <div className="counter num" title="Blinds"><strong>{p.blinds}</strong><span>blinds</span></div>
         </div>
       </header>
@@ -120,7 +128,7 @@ export function TableWindow(p: WindowProps) {
         </div>
 
         <div className="seats">
-          {p.seats.map((s, i) => <Seat key={s.id} s={s} compact={compact} pos={layout.opps[i] ?? layout.opps[layout.opps.length - 1]} highlight={hl} />)}
+          {p.seats.map((s, i) => <Seat key={s.id} s={s} compact={compact} pos={layout.opps[i] ?? layout.opps[layout.opps.length - 1]} highlight={hl} hideCards={p.reveal?.seatId === s.id} />)}
           {p.you && <Seat s={p.you} compact={compact} pos={layout.you} you />}
         </div>
 
@@ -128,20 +136,32 @@ export function TableWindow(p: WindowProps) {
           {[0, 1, 2, 3, 4].map((i) => (
             <div key={i} className={`slot slot-${i + 1} ${p.board[i] === undefined ? "slot-empty" : ""}`} style={{ "--dx": `${(2 - i) * 83}px` } as CSSProperties}>
               {p.board[i] !== undefined
-                ? <div className="card-in" key={`${p.handNo}-${p.board[i]}`} style={{ animationDelay: i < 3 ? `${i * 0.11}s` : "0s" }}><CardFace card={p.board[i]} dim={Boolean(hl && !hl.has(p.board[i]))} /></div>
+                ? <div className="card-in" key={`${p.handNo}-${p.board[i]}`} style={{ animationDelay: i < 3 ? `${i * 0.11}s` : "0s" }}><CardFace card={p.board[i]} dim={Boolean(hl && !hl.has(p.board[i]))} className={hl && hl.has(p.board[i]) ? "win" : ""} /></div>
                 : <Mark />}
             </div>
           ))}
         </div>
 
         {p.hero && (
-          <div className={`hero-hand ${p.hero.folded ? "dim" : ""}`} key={`hero-${p.handNo}`}>
+          <div className={`hero-hand ${p.hero.folded ? "dim" : ""} ${p.reveal ? (p.reveal.heroWon ? "won" : "lost") : ""}`} key={`hero-${p.handNo}`}>
             <div className={`hero-outcome ${p.hero.outcome ? "" : "empty"} ${p.hero.winner ? "tone-win" : ""}`}>{p.hero.outcome ?? " "}</div>
             <div className={`hero-card hero-card-l ${hl && !hl.has(p.hero.hole[0]) ? "dim" : ""}`}><CardFace card={p.hero.hole[0]} /></div>
             <div className={`hero-card hero-card-r ${hl && !hl.has(p.hero.hole[1]) ? "dim" : ""}`}><CardFace card={p.hero.hole[1]} /></div>
           </div>
         )}
 
+        {p.reveal && !p.reveal.heroWon && (() => {
+          const i = p.seats.findIndex((s) => s.id === p.reveal!.seatId);
+          const pos = layout.opps[i] ?? layout.opps[0];
+          const seatW = compact ? 132 : 150;
+          const cx = pos.side === "l" ? pos.x + seatW / 2 : 1180 - pos.x - seatW / 2;
+          const cy = pos.y + (compact ? 70 : 100);
+          return (
+            <div className="reveal" style={{ "--fx": `${cx - 590}px`, "--fy": `${cy - 372 - 47}px` } as CSSProperties}>
+              {p.reveal.hole.map((card) => <div key={card} className="slot"><CardFace card={card} className={hl && hl.has(card) ? "win" : ""} dim={Boolean(hl && !hl.has(card))} /></div>)}
+            </div>
+          );
+        })()}
         {p.banner && (
           <div className={`banner ${p.banner.big ? "big" : ""}`} key={p.banner.key} aria-live="polite">
             <div className="banner-title">{p.banner.title}</div>

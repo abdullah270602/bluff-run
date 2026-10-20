@@ -212,7 +212,7 @@ export function Arena() {
       if (busted) setPhase("runOver");
       else if (cleared) setPhase(bgTables.length ? (bgWinners.length ? "roundCleared" : "waitingBg") : stageIdx === STAGES.length - 1 ? "runOver" : "stageCleared");
       else nextHand();
-    }, hand.result?.showdown ? 4600 : busted || cleared ? 2200 : 2400);
+    }, hand.result?.showdown ? 6200 : 2400);
     return () => clearTimeout(t);
   }, [hand, stageIdx, roundNo, names, models, bgTables, bgWinners, nextHand]);
 
@@ -294,7 +294,6 @@ export function Arena() {
   });
 
   const otherCount = bgTables.reduce((t, x) => t + x.length, 0);
-  const centerLabel = `Stage ${stageIdx + 1}${totalRounds > 1 ? `, round ${roundNo} of ${totalRounds}` : ""}, hand ${handNo}`;
   const potView = (() => {
     if (!hand) return { label: "Pot", value: 0, note: "" as string, tone: undefined as "win" | "lose" | undefined };
     if (phase === "stageCleared") return { label: `Stage ${stageIdx + 1} cleared`, value: STAGES[stageIdx + 1], note: `${STAGES[stageIdx + 1]} opponents next, stacks reset`, tone: "win" as const };
@@ -424,8 +423,8 @@ export function Arena() {
 
   return (
     <TableWindow
-      centerLabel={hand ? centerLabel : "Bluff Run"}
-      counter={{ n: stageN, unit: stageN === 1 ? "opponent" : "opponents" }}
+      stage={{ n: stageIdx + 1, hand: handNo, round: totalRounds > 1 ? `Round ${roundNo} of ${totalRounds}` : undefined }}
+      counter={{ n: stageN, name: "Jev" }}
       blinds={hand ? `${hand.sb}/${hand.bb}` : "10/20"}
       pot={potView.value}
       potLabel={potView.label}
@@ -438,6 +437,7 @@ export function Arena() {
       hero={youSeat ? { hole: youSeat.hole, folded: youSeat.folded, winner: Boolean(youWon), outcome: youSeat.folded ? "Folded" : hand?.street === "done" ? (youWon ? (youWon.label ?? "You win") : heroEval) : null } : null}
       turn={turn}
       highlight={highlight}
+      reveal={done && hand?.result?.showdown && winSeat ? { seatId: winSeat.id, hole: winSeat.hole, heroWon: winSeat.id === PLAYER_ID } : null}
       banner={banner}
       actions={actions}
       leftLinks={leftLinks}
