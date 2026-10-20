@@ -2,12 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { houseDecide } from "@/brains/house";
-import { BRAIN_LABEL, type BrainId, type Decision } from "@/brains/types";
+import { modelById, timedOutDecision, type Decision } from "@/brains/types";
 import { evaluate } from "@/engine/evaluate";
 import { act, dealHand, legal, liveSeats, potSize, type Action, type HandState, type SeatState } from "@/engine/hand";
 import {
-  type Availability,
+
   blindsFor,
   buildView,
   HANDS_PER_LEVEL,
@@ -16,7 +15,6 @@ import {
   resolveChoice,
   rosterForStage,
   roundsForStage,
-  simulateTable,
   splitRound,
   START_STACK,
   STAGES,
@@ -59,13 +57,13 @@ interface SeatBadgeAction {
 
 type Phase =
   | "playing"          // live hand or between hands at a table
+  | "waiting_bg"       // player cleared their table, background tables still playing
   | "round_cleared"    // player cleared their table, advancing to next round of same stage
   | "stage_cleared"    // player cleared the entire stage
   | "run_over";        // player busted or beat stage 100
 
 export function PokerArena() {
-  const [avail, setAvail] = useState<{ jev: boolean; claude: boolean }>({ jev: false, claude: false });
-  const [availLoaded, setAvailLoaded] = useState(false);
+  const [avail, setAvail] = useState<{ configured: boolean; models: { id: string }[] } | null>(null);
 
   // Run-level state
   const [stageIdx, setStageIdx] = useState(0);
@@ -78,6 +76,7 @@ export function PokerArena() {
   const [tableOpps, setTableOpps] = useState<Opponent[]>([]);
   const [bgTables, setBgTables] = useState<Opponent[][]>([]);
   const [bgWinners, setBgWinners] = useState<Opponent[]>([]);
+  const [bgJob, setBgJob] = useState<{ id: string; done: boolean; total: number; tablesDone: number; hands: number } | null>(null);
   const [hand, setHand] = useState<HandState | null>(null);
   const [dealerCursor, setDealerCursor] = useState(0);
   const [tableHandNo, setTableHandNo] = useState(1);
@@ -85,7 +84,6 @@ export function PokerArena() {
   // Turn & UI feedback state
   const [thinkingSeat, setThinkingSeat] = useState<string | null>(null);
   const [seatActions, setSeatActions] = useState<Record<string, SeatBadgeAction>>({});
-  const [fallbackBrains, setFallbackBrains] = useState<Record<string, boolean>>({});
   const [raiseAmount, setRaiseAmount] = useState<number>(40);
   const [fastMode, setFastMode] = useState(false);
   const [autoDeal, setAutoDeal] = useState(true);
@@ -114,10 +112,17 @@ export function PokerArena() {
   const startRoundTable = useCallback(
     (field: Opponent[], nextRoundNo: number, stageIndex: number) => {
       const { mine, others } = splitRound(field);
-      const winners = others.map((t) => simulateTable(t));
       setTableOpps(mine);
       setBgTables(others);
-      setBgWinners(winners);
+      setBgWinners([]);
+      setBgJob(null);
+      if (others.length) {
+        // Background tables start now and are played by Jev on the server while this table runs.
+        fetch("/api/simulate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tables: others }) })
+          .then((r) => r.json())
+          .then((d: { id?: string }) => d.id && setBgJob({ id: d.id, done: false, total: others.length, tablesDone: 0, hands: 0 }))
+          .catch(() => {});
+      }
       setRoundNo(nextRoundNo);
       setTotalRounds(roundsForStage(STAGES[stageIndex]));
       setDealerCursor(0);
@@ -141,8 +146,8 @@ export function PokerArena() {
 
   // Start a stage from scratch
   const startStage = useCallback(
-    (stageIndex: number, currentAvail: { jev: boolean; claude: boolean }) => {
-      const roster = rosterForStage(stageIndex, currentAvail);
+    (stageIndex: number, models: string[]) => {
+      const roster = rosterForStage(stageIndex, models);
       setStageIdx(stageIndex);
       startRoundTable(roster, 1, stageIndex);
     },
@@ -153,18 +158,33 @@ export function PokerArena() {
   useEffect(() => {
     let cancelled = false;
     fetch("/api/decide")
-      .then((r) => (r.ok ? r.json() : { jev: false, claude: false }))
-      .catch(() => ({ jev: false, claude: false }))
-      .then((data: { jev: boolean; claude: boolean }) => {
+      .then((r) => (r.ok ? r.json() : { configured: false, models: [] }))
+      .catch(() => ({ configured: false, models: [] }))
+      .then((data: { configured: boolean; models: { id: string }[] }) => {
         if (cancelled) return;
         setAvail(data);
-        setAvailLoaded(true);
-        startStage(0, data);
+        if (data.configured) startStage(0, data.models.map((m) => m.id));
       });
     return () => {
       cancelled = true;
     };
   }, [startStage]);
+
+  // Poll background tables until they finish
+  useEffect(() => {
+    if (!bgJob || bgJob.done) return;
+    const id = bgJob.id;
+    const tick = async () => {
+      try {
+        const d = (await (await fetch(`/api/simulate?id=${id}`)).json()) as { done: boolean; total: number; tablesDone: number; hands: number; winners: Opponent[] };
+        setBgJob((prev) => (prev && prev.id === id ? { ...prev, done: d.done, total: d.total, tablesDone: d.tablesDone, hands: d.hands } : prev));
+        if (d.done) setBgWinners(d.winners);
+      } catch { /* retry next tick */ }
+    };
+    tick();
+    const t = setInterval(tick, 3000);
+    return () => clearInterval(t);
+  }, [bgJob?.id, bgJob?.done]);
 
   // Deal the next hand at the current table
   const dealNextHand = useCallback(() => {
@@ -243,7 +263,7 @@ export function PokerArena() {
     const seatId = actor.id;
     const seatIdx = hand.toAct;
     const opp = oppById.get(seatId);
-    const brain: BrainId = opp?.brain ?? "house";
+    const model = opp?.model ?? "jev";
     setThinkingSeat(seatId);
 
     const view = buildView(hand, seatIdx, namesMap, personasMap, STAGES[stageIdx]);
@@ -253,30 +273,15 @@ export function PokerArena() {
     const runAiTurn = async () => {
       const t0 = Date.now();
       let decision: Decision | null = null;
-      const shouldCallServer = (brain === "jev" && avail.jev) || (brain === "claude" && avail.claude);
-
-      if (shouldCallServer) {
-        try {
-          const res = await fetch("/api/decide", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ brain, view }),
-          });
-          if (res.ok) {
-            decision = (await res.json()) as Decision;
-          }
-        } catch {
-          // Fallback to local house brain below
-        }
-      }
-
-      if (!decision) {
-        decision = {
-          choice: houseDecide(view),
-          brain: "house",
-          fallback: brain !== "house",
-        };
-      }
+      try {
+        const res = await fetch("/api/decide", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model, view }),
+        });
+        if (res.ok) decision = (await res.json()) as Decision;
+      } catch { /* treated as a timeout below */ }
+      decision ??= timedOutDecision(view, model);
 
       const elapsed = Date.now() - t0;
       if (elapsed < delayMs) {
@@ -291,11 +296,7 @@ export function PokerArena() {
 
       const badge = formatActionBadge(engineAction, prevBet, actor.stack);
       badge.reason = decision.reason;
-      badge.fallback = decision.fallback;
-
-      if (decision.fallback) {
-        setFallbackBrains((prev) => ({ ...prev, [seatId]: true }));
-      }
+      if (decision.timedOut) { badge.label = "Timed out"; badge.tone = "neutral"; }
 
       setSeatActions((prev) => {
         const base = hand.street !== prevStreet ? {} : { ...prev };
@@ -313,7 +314,7 @@ export function PokerArena() {
       cancelled = true;
       aiTurnLockRef.current = false;
     };
-  }, [hand, phase, oppById, namesMap, personasMap, stageIdx, fastMode, avail]);
+  }, [hand, phase, oppById, namesMap, personasMap, stageIdx, fastMode]);
 
   // Process hand completion once per hand
   useEffect(() => {
@@ -354,7 +355,7 @@ export function PokerArena() {
         bestHandScore: Math.max(prev.bestHandScore, handScore),
       };
 
-      if (tableCleared && bgWinners.length === 0) {
+      if (tableCleared && bgTables.length === 0) {
         next.cleared = stageIdx + 1;
         if (stageIdx === STAGES.length - 1) {
           next.won = true;
@@ -374,8 +375,8 @@ export function PokerArena() {
 
     if (tableCleared) {
       const timer = setTimeout(() => {
-        if (bgWinners.length > 0) {
-          setPhase("round_cleared");
+        if (bgTables.length > 0) {
+          setPhase(bgWinners.length > 0 ? "round_cleared" : "waiting_bg");
         } else if (stageIdx === STAGES.length - 1) {
           setPhase("run_over");
         } else {
@@ -392,6 +393,11 @@ export function PokerArena() {
       return () => clearTimeout(timer);
     }
   }, [hand, stageIdx, bgTables, bgWinners, fastMode, autoDeal, dealNextHand]);
+
+  // Background tables finished after the player cleared theirs
+  useEffect(() => {
+    if (phase === "waiting_bg" && bgWinners.length > 0) setPhase("round_cleared");
+  }, [phase, bgWinners]);
 
   // Keyboard shortcuts for player actions & advancing hands
   useEffect(() => {
@@ -417,7 +423,7 @@ export function PokerArena() {
 
       if (phase === "stage_cleared" && (e.code === "Space" || e.code === "Enter")) {
         e.preventDefault();
-        startStage(stageIdx + 1, avail);
+        startStage(stageIdx + 1, avail?.models.map((m) => m.id) ?? []);
         return;
       }
 
@@ -454,11 +460,19 @@ export function PokerArena() {
   // Restart a full run from Stage 1
   const restartRun = () => {
     setStats(emptyStats());
-    setFallbackBrains({});
-    startStage(0, avail);
+    startStage(0, avail?.models.map((m) => m.id) ?? []);
   };
 
-  if (!availLoaded || !hand) {
+  if (avail && !avail.configured) {
+    return (
+      <div className="arena-loading">
+        <Mark size={36} color="var(--signal)" />
+        <p>No OpenRouter key on this server.</p>
+        <p className="arena-loading-sub">Add <code>OPENROUTER_API_KEY</code> to <code>.env.local</code> and restart. Every opponent is played through OpenRouter.</p>
+      </div>
+    );
+  }
+  if (!avail || !hand) {
     return (
       <div className="arena-loading">
         <Mark size={36} color="var(--signal)" />
@@ -475,8 +489,6 @@ export function PokerArena() {
   const stageOpponentsTotal = STAGES[stageIdx];
   const otherFieldCount = bgTables.reduce((acc, t) => acc + t.length, 0);
   const handsUntilBlindUp = HANDS_PER_LEVEL - ((tableHandNo - 1) % HANDS_PER_LEVEL);
-  const liveBrain = (o?: Opponent) => !o ? "house" : (o.brain === "jev" && !avail.jev) || (o.brain === "claude" && !avail.claude) || fallbackBrains[o.id] ? "house" : o.brain;
-  const liveLabelNote = tableOpps[0] && liveBrain(tableOpps[0]) !== tableOpps[0].brain ? " (house engine, no key)" : "";
 
   // Live hand evaluation helper for hero's cards
   const heroHandLabel =
@@ -509,7 +521,7 @@ export function PokerArena() {
             </span>
             <span className="hud-stage-sub num">
               {stageOpponentsTotal === 1
-                ? `Heads-up against ${tableOpps[0]?.name ?? "Jev"}${liveLabelNote}`
+                ? `Heads-up against ${tableOpps[0]?.name ?? "Jev"}`
                 : otherFieldCount > 0
                   ? `${tableOpps.length} at your table, ${otherFieldCount} on ${bgTables.length} other ${bgTables.length === 1 ? "table" : "tables"}`
                   : `${tableOpps.length} opponents at this table`}
@@ -583,7 +595,6 @@ export function PokerArena() {
                   (revealedIds.has(opp.id) || (hand.street === "done" && hand.result?.showdown));
                 const actionBadge = seatActions[opp.id];
                 const isDealer = liveSeatIdx >= 0 && hand.dealer === liveSeatIdx;
-                const isFallback = fallbackBrains[opp.id] || (opp.brain === "jev" && !avail.jev) || (opp.brain === "claude" && !avail.claude);
                 const styleTag =
                   opp.persona.aggression > 0.62
                     ? "AGG"
@@ -624,16 +635,9 @@ export function PokerArena() {
                     <div className="opp-capsule">
                       <div className="opp-top-row">
                         <span className="opp-name">{opp.name}</span>
-                        {opp.brain !== "house" && <span
-                          className={`opp-brain-tag brain-${isFallback ? "house" : opp.brain}`}
-                          title={
-                            isFallback
-                              ? `${BRAIN_LABEL[opp.brain]} key not configured, running the house engine`
-                              : `${BRAIN_LABEL[opp.brain]} (${styleTag})`
-                          }
-                        >
-                          {isFallback ? "house engine" : BRAIN_LABEL[opp.brain]}
-                        </span>}
+                        <span className={`opp-brain-tag brain-${opp.model}`} title={`${modelById(opp.model).label} (${styleTag})`}>
+                          {modelById(opp.model).label}
+                        </span>
                       </div>
 
                       <div className="opp-bottom-row num">
@@ -772,8 +776,8 @@ export function PokerArena() {
                 <div className="drawer-bracket">
                   <span className="drawer-kicker">Other tables</span>
                   <p>
-                    {bgTables.length} background {bgTables.length === 1 ? "table" : "tables"} ({otherFieldCount} AI)
-                    playing down to {bgWinners.length} round {bgWinners.length === 1 ? "winner" : "winners"}.
+                    {otherFieldCount} opponents on {bgTables.length} other {bgTables.length === 1 ? "table" : "tables"}, played by Jev.
+                    {bgJob ? (bgJob.done ? " Finished." : ` ${bgJob.tablesDone} of ${bgJob.total} done, ${bgJob.hands} hands so far.`) : ""}
                   </p>
                 </div>
               )}
@@ -990,6 +994,23 @@ export function PokerArena() {
         </div>
       </footer>
 
+      {/* Waiting for background tables */}
+      <AnimatePresence>
+        {phase === "waiting_bg" && (
+          <motion.div className="arena-modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div className="arena-modal" initial={{ scale: 0.95, y: 12 }} animate={{ scale: 1, y: 0 }}>
+              <span className="modal-kicker num">Stage {stageOpponentsTotal}, round {roundNo} of {totalRounds}</span>
+              <h2>Your table is clear. The others are still playing.</h2>
+              <p className="num">
+                {bgJob
+                  ? `${bgJob.tablesDone} of ${bgJob.total} tables finished, ${bgJob.hands} hands dealt so far. Jev plays every seat over there.`
+                  : "Starting the other tables."}
+              </p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Intermission Overlay: Round Cleared (Multi-Table Bracket Progression) */}
       <AnimatePresence>
         {phase === "round_cleared" && (
@@ -1017,7 +1038,7 @@ export function PokerArena() {
                 {bgWinners.map((w) => (
                   <span key={w.id} className="survivor-chip">
                     <strong>{w.name}</strong>
-                    <small>{BRAIN_LABEL[w.brain]}</small>
+                    <small>{modelById(w.model).label}</small>
                   </span>
                 ))}
               </div>
@@ -1064,7 +1085,7 @@ export function PokerArena() {
                 <button
                   type="button"
                   className="btn btn-primary"
-                  onClick={() => startStage(stageIdx + 1, avail)}
+                  onClick={() => startStage(stageIdx + 1, avail?.models.map((m) => m.id) ?? [])}
                 >
                   Deal stage {STAGES[stageIdx + 1]}
                 </button>

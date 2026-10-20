@@ -1,7 +1,7 @@
 // Smallest runnable check: `npm test`. Fails loudly if the evaluator or hand flow breaks.
 import assert from "node:assert/strict";
 import { parseCard } from "./cards";
-import { evaluate, equity } from "./evaluate";
+import { evaluate } from "./evaluate";
 import { act, dealHand, legal, potSize } from "./hand";
 
 const P = (s: string) => s.split(" ").map(parseCard);
@@ -29,10 +29,6 @@ assert.ok(score("6s 7h 8d 9c Th 2d 3c") > score("5s 6h 7d 8c 9h 2d 3c"), "higher
 assert.ok(score("Ks Kh Kd 4c 4h 2d 9c") > score("Qs Qh Qd Ac Ah 2d 9c"), "full house by trips");
 // two trips -> full house with the best pair
 assert.equal(evaluate(P("Ks Kh Kd Qc Qh Qd 9c")).label, "Full house, Kings full of Queens");
-
-// equity sanity: aces beat a random hand most of the time
-const eq = equity(P("As Ah"), [], 1, 400, seeded(1));
-assert.ok(eq > 0.78 && eq < 0.92, `AA equity ${eq}`);
 
 // heads-up hand: dealer is SB and acts first preflop
 let h = dealHand([{ id: "a", stack: 1000 }, { id: "b", stack: 1000 }], 0, 10, 20, 1, seeded(2));
@@ -80,14 +76,19 @@ import { rosterForStage, roundsForStage, simulateTable, splitRound, STAGES } fro
 import { decodeRun, encodeRun } from "@/game/share";
 
 assert.deepEqual(STAGES.map(roundsForStage), [1, 1, 1, 1, 2, 2, 2, 3], "tournament rounds per stage");
-const r16 = rosterForStage(4, { jev: true, claude: true }, seeded(6));
+const r16 = rosterForStage(4, ["jev", "haiku"], seeded(6));
 assert.equal(r16.length, 16);
 const { mine, others } = splitRound(r16);
 assert.equal(mine.length, 8);
 assert.equal(others.length, 1);
 assert.equal(others[0].length, 8);
-const tableWinner = simulateTable(others[0], seeded(7));
-assert.ok(others[0].some((o) => o.id === tableWinner.id), "background table produces valid winner");
+assert.ok(r16.slice(8).every((o) => o.model === "jev"), "background field is Jev");
+const rngT = seeded(7);
+const stub = async (): Promise<"raise_small" | "check_call" | "fold"> => (rngT() < 0.3 ? "raise_small" : rngT() < 0.7 ? "check_call" : "fold");
+simulateTable(others[0], stub, undefined, seeded(8)).then((tableWinner) => {
+  assert.ok(others[0].some((o) => o.id === tableWinner.id), "background table produces valid winner");
+  console.log("background table ok");
+});
 
 const sampleRun = {
   stageIdx: 4,

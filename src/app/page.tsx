@@ -7,6 +7,7 @@ import { Logo } from "@/components/Logo";
 import { PlayingCard } from "@/components/PlayingCard";
 import { BEST_RUN_STORAGE_KEY } from "@/components/PokerArena";
 import { parseCard } from "@/engine/cards";
+import { MODELS } from "@/brains/types";
 import { type Opponent, splitRound, STAGES } from "@/game/run";
 import { encodeRun, type RunStats } from "@/game/share";
 
@@ -35,14 +36,14 @@ const SAMPLE_CARDS: [string, string][] = [["As", "Ks"], ["Qh", "Qd"], ["Jh", "Th
 export default function LandingPage() {
   const [selected, setSelected] = useState(0);
   const [bestRun, setBestRun] = useState<RunStats | null>(null);
-  const [avail, setAvail] = useState<{ jev: boolean; claude: boolean } | null>(null);
+  const [configured, setConfigured] = useState<boolean | null>(null);
 
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(BEST_RUN_STORAGE_KEY);
       if (raw) setBestRun(JSON.parse(raw) as RunStats);
     } catch { /* storage unavailable */ }
-    fetch("/api/decide").then((r) => (r.ok ? r.json() : null)).then((d) => d && setAvail(d)).catch(() => {});
+    fetch("/api/decide").then((r) => (r.ok ? r.json() : null)).then((d) => d && setConfigured(Boolean(d.configured))).catch(() => {});
   }, []);
 
   const n = STAGES[selected];
@@ -146,37 +147,25 @@ export default function LandingPage() {
             <h2 className="section-title">The opponents decide for themselves.</h2>
             <p>
               Each seat is driven by a model that sees the same table you do: cards, pot, price to call, who did what. No scripted lines.
-              {avail && !avail.jev && !avail.claude && " On this deployment no model keys are set, so every seat runs on the house engine."}
+              {configured === false && " This deployment has no OpenRouter key yet, so the table cannot open."}
             </p>
           </div>
           <ul className="roster">
-            <li>
-              <span className="roster-glyph glyph-jev" aria-hidden="true">J</span>
-              <div>
-                <h3>Jev</h3>
-                <p>TypeSafe AI&apos;s decision model. It answers in milliseconds with a probability for each action, and the seat plays from those odds.</p>
-              </div>
-            </li>
-            <li>
-              <span className="roster-glyph glyph-claude" aria-hidden="true">H</span>
-              <div>
-                <h3>Claude Haiku</h3>
-                <p>Reads the table and picks an action with one line of reasoning. Hover its seat to see why it did what it did.</p>
-              </div>
-            </li>
-            <li>
-              <span className="roster-glyph glyph-house" aria-hidden="true">B</span>
-              <div>
-                <h3>House</h3>
-                <p>An equity engine with a personality dial. It runs the background tables and covers any seat whose model is unavailable.</p>
-              </div>
-            </li>
+            {MODELS.map((m) => (
+              <li key={m.id}>
+                <span className={`roster-glyph glyph-${m.id}`} aria-hidden="true">{m.short[0]}</span>
+                <div>
+                  <h3>{m.label}</h3>
+                  <p>{m.blurb}</p>
+                </div>
+              </li>
+            ))}
           </ul>
         </section>
 
         <section className="bracket-section">
           <h2 className="section-title">Past eight, it becomes a shootout.</h2>
-          <p className="bracket-lead">A poker table seats nine. At stage 100 the field splits into tables. You play yours live, the house engine plays the rest, and the winners come back for you. Three rounds, and you have to win every table.</p>
+          <p className="bracket-lead">A poker table seats nine. At stage 100 the field splits into tables. You play yours live, Jev plays the rest on the server at the same time, and the winners come back for you. Three rounds, and you have to win every table.</p>
           <ol className="bracket" aria-label="Stage 100 rounds">
             {rows100.map((r, i) => (
               <li key={i} className="bracket-row">

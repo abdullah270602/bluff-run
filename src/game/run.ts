@@ -1,5 +1,4 @@
-import { houseDecide } from "@/brains/house";
-import type { BrainId, Choice, Persona, PlayerView } from "@/brains/types";
+import { MODELS, modelById, type Choice, type Persona, type PlayerView } from "@/brains/types";
 import { cardStr } from "@/engine/cards";
 import { act, dealHand, legal, liveSeats, potSize, type Action, type HandState } from "@/engine/hand";
 
@@ -11,8 +10,7 @@ export const TABLE_MAX_OPPONENTS = 8; // player + 8 = 9 seats
 export const SIM_TABLE_SIZE = 9;
 export const PLAYER_ID = "you";
 
-export interface Opponent { id: string; name: string; brain: BrainId; persona: Persona }
-export interface Availability { jev: boolean; claude: boolean }
+export interface Opponent { id: string; name: string; model: string; persona: Persona }
 
 export const blindsFor = (handNo: number): [number, number] => BLIND_LEVELS[Math.min(BLIND_LEVELS.length - 1, Math.floor((handNo - 1) / HANDS_PER_LEVEL))];
 
@@ -20,19 +18,20 @@ function persona(rng: () => number): Persona {
   return { aggression: 0.3 + rng() * 0.5, bluff: 0.05 + rng() * 0.25, patience: 0.2 + rng() * 0.6 };
 }
 
-/** Opponents for a stage. Stage 1 is Jev alone; later stages mix whatever models are live. */
-export function rosterForStage(stageIdx: number, avail: Availability, rng: () => number = Math.random): Opponent[] {
+/**
+ * Opponents for a stage. Stage 1 is Jev alone. Later, the seats at the player's table rotate through
+ * the available models; everyone in the background field is Jev, which is what plays those tables.
+ */
+export function rosterForStage(stageIdx: number, modelIds: string[] = MODELS.map((m) => m.id), rng: () => number = Math.random): Opponent[] {
   const n = STAGES[stageIdx];
-  const pool: BrainId[] = [];
-  if (avail.jev) pool.push("jev", "jev");
-  if (avail.claude) pool.push("claude");
-  if (!pool.length) pool.push("house");
-  const counts: Record<BrainId, number> = { jev: 0, claude: 0, house: 0 };
+  const pool = modelIds.length ? modelIds : ["jev"];
+  const counts = new Map<string, number>();
   return Array.from({ length: n }, (_, i) => {
-    const brain = stageIdx === 0 ? (avail.jev ? "jev" : pool[0]) : pool[i % pool.length];
-    counts[brain]++;
-    const base = brain === "jev" ? "Jev" : brain === "claude" ? "Haiku" : "House";
-    return { id: `${brain}-${stageIdx}-${i}`, name: n === 1 ? base : `${base} ${counts[brain]}`, brain, persona: persona(rng) };
+    const model = stageIdx === 0 || i >= TABLE_MAX_OPPONENTS ? "jev" : pool[i % pool.length];
+    const k = (counts.get(model) ?? 0) + 1;
+    counts.set(model, k);
+    const short = modelById(model).short;
+    return { id: `${model}-${stageIdx}-${i}`, name: n === 1 ? short : `${short} ${k}`, model, persona: persona(rng) };
   });
 }
 
@@ -65,7 +64,7 @@ export function buildView(h: HandState, i: number, names: Map<string, string>, p
     minRaiseTo: L.minRaiseTo,
     maxRaiseTo: L.maxRaiseTo,
     street: h.street,
-    opponents: h.seats.filter((_, j) => j !== i).map((o, j) => ({ name: names.get(o.id) ?? o.id, stack: o.stack, bet: o.bet, folded: o.folded, allIn: o.allIn, dealer: h.seats.indexOf(o) === h.dealer })),
+    opponents: h.seats.filter((_, j) => j !== i).map((o) => ({ name: names.get(o.id) ?? o.id, stack: o.stack, bet: o.bet, folded: o.folded, allIn: o.allIn, dealer: h.seats.indexOf(o) === h.dealer })),
     activeCount: h.seats.filter((o) => !o.folded).length,
     history: h.log.filter((e) => e.action !== "win").map((e) => `${e.street}: ${names.get(e.seat) ?? e.seat} ${e.action}${e.amount ? ` ${e.amount}` : ""}`),
     blinds: { sb: h.sb, bb: h.bb },
@@ -75,37 +74,44 @@ export function buildView(h: HandState, i: number, names: Map<string, string>, p
   };
 }
 
-/** Map a brain's coarse choice onto a legal engine action. */
+/** Map a model's coarse choice onto a legal engine action. */
 export function resolveChoice(h: HandState, i: number, c: Choice): Action {
   const L = legal(h, i);
   const pot = potSize(h);
   const raiseTo = (amt: number) => ({ type: "raise", to: Math.min(L.maxRaiseTo, Math.max(L.minRaiseTo, Math.round(amt))) }) as Action;
+  const passive = (): Action => (L.toCall === 0 ? { type: "check" } : { type: "call" });
   switch (c) {
     case "fold": return L.toCall === 0 ? { type: "check" } : { type: "fold" };
-    case "check_call": return L.toCall === 0 ? { type: "check" } : { type: "call" };
-    case "raise_small": return L.canRaise ? raiseTo(h.currentBet + (pot + L.toCall) * 0.5) : L.toCall === 0 ? { type: "check" } : { type: "call" };
-    case "raise_big": return L.canRaise ? raiseTo(h.currentBet + (pot + L.toCall)) : L.toCall === 0 ? { type: "check" } : { type: "call" };
-    case "all_in": return L.canRaise ? raiseTo(L.maxRaiseTo) : L.toCall === 0 ? { type: "check" } : { type: "call" };
+    case "check_call": return passive();
+    case "raise_small": return L.canRaise ? raiseTo(h.currentBet + (pot + L.toCall) * 0.5) : passive();
+    case "raise_big": return L.canRaise ? raiseTo(h.currentBet + (pot + L.toCall)) : passive();
+    case "all_in": return L.canRaise ? raiseTo(L.maxRaiseTo) : passive();
   }
 }
 
-/** Resolve a background table with the house brain. Returns the winner. */
-export function simulateTable(opps: Opponent[], rng: () => number = Math.random): Opponent {
+export type Decide = (model: string, view: PlayerView) => Promise<Choice>;
+
+/** Play a background table to one survivor. Capped at 300 hands; then the biggest stack wins. */
+export async function simulateTable(opps: Opponent[], decide: Decide, onHand?: () => void, rng: () => number = Math.random): Promise<Opponent> {
   if (opps.length === 1) return opps[0];
   const names = new Map(opps.map((o) => [o.id, o.name]));
   const personas = new Map(opps.map((o) => [o.id, o.persona]));
+  const models = new Map(opps.map((o) => [o.id, o.model]));
   let seats = opps.map((o) => ({ id: o.id, stack: START_STACK }));
   let dealer = 0, handNo = 0;
-  while (seats.length > 1 && handNo < 400) {
+  while (seats.length > 1 && handNo < 300) {
     handNo++;
     const [sb, bb] = blindsFor(handNo);
     const h = dealHand(seats, dealer % seats.length, sb, bb, handNo, rng);
     let guard = 0;
     while (h.street !== "done" && guard++ < 200) {
-      act(h, resolveChoice(h, h.toAct, houseDecide(buildView(h, h.toAct, names, personas, 0), 25, rng)));
+      const id = h.seats[h.toAct].id;
+      const choice = await decide(models.get(id) ?? "jev", buildView(h, h.toAct, names, personas, 0));
+      act(h, resolveChoice(h, h.toAct, choice));
     }
     seats = liveSeats(h).map((s) => ({ id: s.id, stack: s.stack }));
     dealer++;
+    onHand?.();
   }
   const winner = seats.sort((a, b) => b.stack - a.stack)[0];
   return opps.find((o) => o.id === winner.id)!;

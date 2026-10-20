@@ -89,29 +89,3 @@ export function evaluate(cards: Card[]): HandValue {
   return { score: pack(0, ks), category: 0, label: `${RANK_WORD[ks[0]]} high` };
 }
 
-/** Monte Carlo equity of `hole` vs `opponents` random hands given `board`. */
-export function equity(hole: Card[], board: Card[], opponents: number, rollouts: number, rng: () => number = Math.random): number {
-  const used = new Set([...hole, ...board]);
-  const pool: Card[] = [];
-  for (let c = 0; c < 52; c++) if (!used.has(c)) pool.push(c);
-  const need = 5 - board.length;
-  let won = 0;
-  for (let i = 0; i < rollouts; i++) {
-    const take = need + opponents * 2;
-    for (let k = 0; k < take; k++) {
-      const j = k + ((rng() * (pool.length - k)) | 0);
-      [pool[k], pool[j]] = [pool[j], pool[k]];
-    }
-    const fullBoard = board.concat(pool.slice(0, need));
-    const mine = evaluate(hole.concat(fullBoard)).score;
-    let best = mine, ties = 1, beaten = false;
-    for (let o = 0; o < opponents; o++) {
-      const idx = need + o * 2;
-      const s = evaluate([pool[idx], pool[idx + 1]].concat(fullBoard)).score;
-      if (s > best) { beaten = true; break; }
-      if (s === best) ties++;
-    }
-    if (!beaten) won += 1 / ties;
-  }
-  return won / rollouts;
-}
