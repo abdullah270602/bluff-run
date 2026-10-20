@@ -213,6 +213,7 @@ button.pill-lime:hover, a.pill-lime:hover { background: #ffffff; color: var(--ac
 .member-stat { text-align: right; font-size: 11.5px; color: var(--text-3); white-space: nowrap; }
 .member-stat strong { display: block; color: var(--text); font-weight: 500; font-size: 14px; }
 .results-kicker { font-size: 13px; color: var(--gold); margin-bottom: 8px; }
+.site-foot .brand { white-space: nowrap; }
 .site-foot a { color: var(--text-2); text-decoration: underline; text-underline-offset: 3px; }
 
 /* hand + stage banners on the felt */
@@ -419,6 +420,27 @@ button.pill-lime:hover, a.pill-lime:hover { background: #ffffff; color: var(--ac
 .shown h3 { font-size: 17px; font-weight: 500; margin-bottom: 5px; }
 .shown p { font-size: 14.5px; line-height: 1.55; color: var(--text-2); max-width: 46ch; }
 
+/* the Jevs at a casino table: seats on the rim, the hovered one's read on the felt */
+.jev-table-wrap { width: 100%; margin-top: 64px; padding: 54px 70px 64px; }
+.jev-table { position: relative; width: 100%; aspect-ratio: 2.25; border-radius: 50%; background: radial-gradient(ellipse 70% 80% at 50% 42%, #205546 0%, #184236 52%, #123327 100%); box-shadow: inset 0 0 0 11px #0b1a15, inset 0 0 0 13px rgba(255, 255, 255, 0.07), inset 0 0 60px rgba(0, 0, 0, 0.35), 0 34px 70px rgba(0, 0, 0, 0.5); }
+.jev-seat { --a: 270deg; position: absolute; left: calc(50% + 50% * cos(var(--a))); top: calc(50% + 50% * sin(var(--a))); transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 9px; padding: 6px; background: none; border: 0; color: var(--text); font: inherit; cursor: pointer; z-index: 2; }
+.jev-seat .avatar { width: 66px; height: 66px; box-shadow: 0 14px 28px rgba(0, 0, 0, 0.5), 0 0 0 2px rgba(255, 255, 255, 0.06); }
+.jev-seat span { font-size: 14px; font-weight: 500; }
+.jev-seat:hover .avatar, .jev-seat.active .avatar { transform: translateY(-5px); box-shadow: 0 20px 34px rgba(0, 0, 0, 0.55), 0 0 0 2px var(--gold); }
+.jev-seat:focus-visible { outline: none; } .jev-seat:focus-visible .avatar { box-shadow: 0 0 0 2px var(--gold), 0 0 0 5px rgba(227, 207, 142, 0.25); }
+.jev-you { position: absolute; left: 50%; top: 100%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 9px; padding: 6px; color: var(--text-3); font-size: 14px; font-weight: 500; }
+.jev-you i { display: block; width: 66px; height: 66px; border-radius: 50%; border: 2px dashed rgba(255, 255, 255, 0.18); background: rgba(6, 12, 10, 0.3); }
+.jev-plate { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(380px, 58%); display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+.jev-plate h3 { font-size: 22px; font-weight: 600; letter-spacing: -0.015em; display: flex; flex-direction: column; gap: 2px; }
+.jev-plate h3 span { font-size: 13.5px; font-weight: 400; color: var(--text-3); }
+.jev-plate .guide-lean { width: 180px; margin: 2px 0 4px; }
+.jev-plate p { font-size: 15px; line-height: 1.5; color: var(--text-2); margin: 0; }
+.jev-plate .jev-how { color: var(--gold); }
+.jev-plate small { font-size: 12.5px; color: var(--text-3); }
+.jev-link { font-size: 14px; font-weight: 500; color: var(--gold); text-decoration: underline; text-underline-offset: 4px; text-decoration-color: rgba(227, 207, 142, 0.4); }
+.jev-link:hover { text-decoration-color: var(--gold); }
+.guide-page .shown { margin-top: 12px; }
+
 /* the field guide: one row per archetype, scanned like a table */
 .guide { width: 100%; margin-top: 72px; text-align: left; }
 .guide-head { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: end; margin-bottom: 22px; }
@@ -449,6 +471,15 @@ button.pill-lime:hover, a.pill-lime:hover { background: #ffffff; color: var(--ac
   .page-shell { padding: 20px 16px 64px; }
   .results { grid-template-columns: 1fr; overflow-y: auto; }
   .results-left { border-right: 0; border-bottom: 1px solid var(--line); }
+  .jev-table-wrap { padding: 44px 30px 54px; margin-top: 40px; }
+  .jev-table { aspect-ratio: 0.72; }
+  .jev-seat { --a: var(--b); gap: 6px; }
+  .jev-seat .avatar, .jev-you i { width: 52px; height: 52px; }
+  .jev-seat span, .jev-you { font-size: 12.5px; }
+  .jev-plate { width: 68%; gap: 8px; }
+  .jev-plate h3 { font-size: 19px; }
+  .jev-plate p { font-size: 13.5px; }
+  .jev-plate .guide-lean { width: 150px; }
   .shown { grid-template-columns: 1fr; }
   .guide { margin-top: 48px; }
   .guide-head { grid-template-columns: 1fr; gap: 8px; }
