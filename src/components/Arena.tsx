@@ -169,7 +169,7 @@ export function Arena() {
     (async () => {
       const t0 = Date.now();
       try {
-        const res = await fetch("/api/council", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ members: council, view, tilted: handNo <= tiltUntil.current }) });
+        const res = await fetch("/api/council", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ members: council, view, tilted: handNo <= tiltUntil.current }), signal: AbortSignal.timeout(20_000 + total * 400) });
         if (res.ok && res.body) {
           const reader = res.body.getReader();
           const dec = new TextDecoder();

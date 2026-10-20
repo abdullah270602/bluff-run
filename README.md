@@ -12,7 +12,7 @@ Heads-up no-limit Hold'em against a council of Jevs (TypeSafe AI, via OpenRouter
 - What the council thought is hidden during the hand and shown after the run: every decision with its vote, and the reveal of each member you faced.
 - Share: `/r/[code]` carries the run in the URL with an Open Graph card (ladder, Jevs outlasted, the vote that ended it). "Copy summary" gives a Wordle-style ladder; "Copy link" sends the same council to a friend.
 
-Stacks start at 500 with 10/20 blinds rising every 6 hands.
+Stacks start at 300 with 10/20 blinds rising every 4 hands, so a stage takes a few minutes. A solo Jev acts on its own top choice; council members sample from their probabilities, so the variety comes from the members.
 
 ## Run it
 

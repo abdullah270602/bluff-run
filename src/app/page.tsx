@@ -12,11 +12,11 @@ import { STAGES } from "@/game/run";
 import { dailyNumber, encodeRun, type RunStats } from "@/game/share";
 
 const P = (s: string) => parseCard(s);
-const demoJev: SeatVM = { id: "jev", name: "Jev", mood: "think", variant: 5, sub: "council of 16", stack: 410, bet: 0, folded: false, allIn: false, out: false, hole: null, status: { text: "Deliberating", tone: "think" }, dealer: false, turn: true, winner: false };
-const demoYou: SeatVM = { id: "you", name: "You", mood: "idle", variant: 4, stack: 530, bet: 60, folded: false, allIn: false, out: false, hole: null, status: { text: "Raised to 60", tone: "raise" }, dealer: true, turn: false, winner: false };
+const demoJev: SeatVM = { id: "jev", name: "Jev", mood: "think", variant: 5, sub: "council of 16", stack: 200, bet: 0, folded: false, allIn: false, out: false, hole: null, status: { text: "Deliberating", tone: "think" }, dealer: false, turn: true, winner: false };
+const demoYou: SeatVM = { id: "you", name: "You", mood: "idle", variant: 4, stack: 240, bet: 60, folded: false, allIn: false, out: false, hole: null, status: { text: "Raised to 60", tone: "raise" }, dealer: true, turn: false, winner: false };
 
 const CAPTIONS: Record<number, string> = {
-  1: "One Jev, no brief. It samples its answer, so it is erratic and bluffable. Take its last chip to move up.",
+  1: "One Jev, no brief, playing its own game. Bet your good hands and it will pay you. Take its last chip to move up.",
   2: "Two votes. The first time the seat can disagree with itself.",
   4: "Four. A Grinder joins: tight, aggressive, hard to bluff.",
   8: "Eight. A Hustler enters and the first quirks appear.",

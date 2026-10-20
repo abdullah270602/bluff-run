@@ -12,7 +12,7 @@ export type Tell = "none" | "timing" | "wide_eyes" | "blink";
 export interface Member { id: string; name: string; archetype: Archetype; quirk: Quirk; tell: Tell; shape: number }
 
 export const ARCHETYPES: Record<Archetype, { label: string; shape: number; brief: string; read: string; exploit: string }> = {
-  plain: { label: "Plain Jev", shape: 0, brief: "", read: "The model with no brief. Samples its answer, so it is erratic.", exploit: "Be patient. It will hand you chips." },
+  plain: { label: "Plain Jev", shape: 0, brief: "", read: "The model with no brief, playing its own game.", exploit: "Bet your good hands. It pays off." },
   rock: { label: "Rock", shape: 4, brief: "Your style is tight and passive. You play very few hands, prefer calling to raising, fold anything marginal, and only raise with a strong made hand.", read: "Tight and passive. Folds most hands, calls only with strength.", exploit: "Steal its blinds. Fold when it finally raises." },
   station: { label: "Station", shape: 7, brief: "Your style is loose and passive. You hate folding. You call most bets to see what happens and almost never raise, even with good hands.", read: "Loose and passive. Calls everything, rarely raises.", exploit: "Stop bluffing. Bet thin for value and size up." },
   grinder: { label: "Grinder", shape: 5, brief: "Your style is tight and aggressive. You play few hands, but when you play you raise or fold rather than call. You value bet firmly and rarely bluff.", read: "Tight and aggressive. Few hands, played hard.", exploit: "Stay balanced. Bluffing it is risky." },

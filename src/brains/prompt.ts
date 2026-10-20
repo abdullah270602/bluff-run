@@ -10,7 +10,7 @@ export function describeState(v: PlayerView): string {
     v.brief ? `You are ${v.hero.name}. ${v.brief}` : `You are ${v.hero.name}.`,
     `Your cards: ${v.hero.hole.join(" ")}. Stack: ${v.hero.stack}${v.hero.dealer ? " (dealer)" : ""}.`,
     `Street: ${v.street}. Board: ${v.board.length ? v.board.join(" ") : "none yet"}. Pot: ${v.pot}.`,
-    `To call: ${v.toCall}${v.pot + v.toCall > 0 && v.toCall > 0 ? ` (you need to win ${Math.round((v.toCall / (v.pot + v.toCall)) * 100)}% of the time to break even)` : ""}. ${v.canRaise ? `Min raise to ${v.minRaiseTo}, all-in is ${v.maxRaiseTo}.` : "You cannot raise."}`,
+    `To call: ${v.toCall}${v.toCall > 0 ? ` (${(v.toCall / v.blinds.bb).toFixed(1).replace(/\.0$/, "")} big blinds; you need to win ${Math.round((v.toCall / (v.pot + v.toCall)) * 100)}% of the time to break even)` : ""}. ${v.canRaise ? `Min raise to ${v.minRaiseTo}, all-in is ${v.maxRaiseTo}.` : "You cannot raise."}`,
     `Opponent:\n${opp}`,
     `Action so far this hand:\n${v.history.length ? v.history.join("\n") : "none"}`,
   ].join("\n\n");

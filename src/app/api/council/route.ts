@@ -26,7 +26,7 @@ export async function POST(req: Request) {
       const queue = [...members];
       const worker = async () => {
         for (let m = queue.shift(); m; m = queue.shift()) {
-          const v = await vote(m.id, { ...view, brief: memberBrief(m, Boolean(tilted)) });
+          const v = await vote(m.id, { ...view, brief: memberBrief(m, Boolean(tilted)) }, members.length > 1);
           controller.enqueue(encoder.encode(JSON.stringify(v) + "\n"));
         }
       };

@@ -13,12 +13,13 @@ const headers = () => ({
 });
 
 /** One member's vote. Two attempts, then it counts as a timed-out vote (check or fold). */
-export async function vote(member: string, v: PlayerView, rng: () => number = Math.random): Promise<Vote> {
+/** `sampled` draws from the probabilities (council members); a solo Jev acts on its own top choice. */
+export async function vote(member: string, v: PlayerView, sampled = true, rng: () => number = Math.random): Promise<Vote> {
   const allowed = allowedChoices(v);
-  if (MOCK()) return mockVote(member, v, allowed, rng);
+  if (MOCK()) return mockVote(member, v, allowed, sampled, rng);
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      return await systemOne(member, v, allowed, rng);
+      return await systemOne(member, v, allowed, sampled, rng);
     } catch (e) {
       console.warn(`[vote] ${member} attempt ${attempt + 1}: ${(e as Error).message}`);
     }
@@ -26,7 +27,7 @@ export async function vote(member: string, v: PlayerView, rng: () => number = Ma
   return { member, choice: timedOutChoice(v), timedOut: true };
 }
 
-async function systemOne(member: string, v: PlayerView, allowed: Choice[], rng: () => number): Promise<Vote> {
+async function systemOne(member: string, v: PlayerView, allowed: Choice[], sampled: boolean, rng: () => number): Promise<Vote> {
   const criteria: Record<string, string> = {};
   for (const c of allowed) criteria[c] = CHOICE_CRITERIA[c];
   const res = await fetch("https://openrouter.ai/api/v1/systemone", {
@@ -48,21 +49,25 @@ async function systemOne(member: string, v: PlayerView, allowed: Choice[], rng: 
   if (!res.ok) throw new Error(`${res.status} ${(await res.text()).slice(0, 160)}`);
   const data = (await res.json()) as { answers: { action: { choice: Choice; probabilities: Record<string, number> } } };
   const probs = data.answers.action.probabilities;
-  return { member, choice: sample(probs, allowed, rng, data.answers.action.choice), probabilities: probs };
+  return { member, choice: pick(probs, allowed, sampled, rng, data.answers.action.choice), probabilities: probs };
 }
 
-/** Sample a vote from the member's probabilities, sharpened toward its top choice. */
-function sample(probs: Record<string, number>, allowed: Choice[], rng: () => number, fallback: Choice): Choice {
+/** The vote: sampled from the probabilities (sharpened toward the top), or the top choice itself. */
+function pick(probs: Record<string, number>, allowed: Choice[], sampled: boolean, rng: () => number, fallback: Choice): Choice {
   const entries = Object.entries(probs).filter(([k]) => allowed.includes(k as Choice)).map(([k, p]) => [k, Math.pow(p, 1.4)] as const);
-  const total = entries.reduce((t, [, p]) => t + p, 0);
-  let r = rng() * total;
   let choice: Choice = fallback;
-  for (const [k, p] of entries) { r -= p; if (r <= 0) { choice = k as Choice; break; } }
+  if (sampled) {
+    const total = entries.reduce((t, [, p]) => t + p, 0);
+    let r = rng() * total;
+    for (const [k, p] of entries) { r -= p; if (r <= 0) { choice = k as Choice; break; } }
+  } else if (entries.length) {
+    choice = entries.reduce((best, e) => (e[1] > best[1] ? e : best))[0] as Choice;
+  }
   return allowed.includes(choice) ? choice : allowed.includes("check_call") ? "check_call" : allowed[0];
 }
 
 /** Dev stand-in: weights shaped by the brief so personalities still read without a key. */
-function mockVote(member: string, v: PlayerView, allowed: Choice[], rng: () => number): Vote {
+function mockVote(member: string, v: PlayerView, allowed: Choice[], sampled: boolean, rng: () => number): Vote {
   const b = v.brief;
   const w: Record<Choice, number> = b.includes("wild") ? { fold: 0.5, check_call: 1, raise_small: 2, raise_big: 2.5, all_in: 1.5 }
     : b.includes("tight and passive") ? { fold: 3, check_call: 2, raise_small: 0.4, raise_big: 0.2, all_in: 0.05 }
@@ -74,5 +79,5 @@ function mockVote(member: string, v: PlayerView, allowed: Choice[], rng: () => n
   const total = allowed.reduce((t, c) => t + w[c], 0);
   const probs: Partial<Record<Choice, number>> = {};
   for (const c of allowed) probs[c] = w[c] / total;
-  return { member, choice: sample(probs as Record<string, number>, allowed, rng, allowed[0]), probabilities: probs };
+  return { member, choice: pick(probs as Record<string, number>, allowed, sampled, rng, allowed[0]), probabilities: probs };
 }

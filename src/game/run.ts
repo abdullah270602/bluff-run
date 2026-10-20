@@ -3,9 +3,9 @@ import { cardStr } from "@/engine/cards";
 import { legal, potSize, type Action, type HandState } from "@/engine/hand";
 
 export const STAGES = [1, 2, 4, 8, 16, 32, 64, 100];
-export const START_STACK = 500;
+export const START_STACK = 300;
 export const BLIND_LEVELS: [number, number][] = [[10, 20], [15, 30], [25, 50], [40, 80], [60, 120], [100, 200], [150, 300], [250, 500]];
-export const HANDS_PER_LEVEL = 6;
+export const HANDS_PER_LEVEL = 4;
 export const PLAYER_ID = "you";
 export const SEAT_ID = "jev";
 
