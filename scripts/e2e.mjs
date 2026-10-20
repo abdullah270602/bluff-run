@@ -12,7 +12,7 @@ page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
 await page.goto(base + "/play", { waitUntil: "networkidle" });
 const handNo = async () => Number((await page.locator(".stage-ind").getAttribute("aria-label").catch(() => ""))?.match(/hand (\d+)/i)?.[1] || 0);
 const start = await handNo();
-const deadline = Date.now() + 75_000;
+const deadline = Date.now() + 110_000;
 let clicks = 0, shot = false, showdown = false;
 while (Date.now() < deadline) {
   const act = page.getByRole("button", { name: /^(Check|Call)/ });
@@ -20,6 +20,8 @@ while (Date.now() < deadline) {
   const next = page.getByRole("button", { name: /^(Next hand|Deal)/ });
   if (await next.count()) await next.first().click({ timeout: 800 }).catch(() => {});
   if (!showdown && (await page.locator(".seat-status.tone-win").count()) && (await page.locator(".seat-status.tone-plain:not(.empty)").count())) { await page.waitForTimeout(500); await page.screenshot({ path: "screenshots/showdown.png" }); showdown = true; }
+  if (await page.locator(".deliberation:not(.done)").count()) await page.screenshot({ path: "screenshots/deliberation.png" }).catch(() => {});
+  if (await page.locator(".deliberation.done").count()) await page.screenshot({ path: "screenshots/deliberation-done.png" }).catch(() => {});
   if (await page.locator(".chip-fly").count()) await page.screenshot({ path: "screenshots/chips.png" }).catch(() => {});
   if (await page.locator(".turn-ring.sweep").count()) await page.screenshot({ path: "screenshots/sweep.png" }).catch(() => {});
   if (!shot && (await handNo()) >= 3) { await page.screenshot({ path: "screenshots/play-mid.png" }); shot = true; }

@@ -1,19 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { timedOutDecision, type Decision } from "@/brains/types";
+import { useSearchParams } from "next/navigation";
+import { allowedChoices, timedOutChoice, type Decision, type Vote } from "@/brains/types";
 import { bestFive, evaluate } from "@/engine/evaluate";
-import type { Mood } from "./Bot";
 import { act, dealHand, legal, liveSeats, potSize, type Action, type HandState } from "@/engine/hand";
-import { blindsFor, buildView, type Opponent, PLAYER_ID, resolveChoice, rosterForStage, roundsForStage, splitRound, START_STACK, STAGES } from "@/game/run";
-import { recordHand, type HandRecord } from "@/game/review";
-import { emptyStats, type RunStats } from "@/game/share";
+import { ARCHETYPES, buildCouncil, groupOf, hashSeed, newSeed, rngFrom, tally, type Member } from "@/game/council";
+import { blindsFor, buildView, PLAYER_ID, resolveChoice, SEAT_ID, START_STACK, STAGES } from "@/game/run";
+import { memberStats, recordHand, type HandRecord } from "@/game/review";
+import { dailyNumber, emptyStats, todaySeed, type RunStats } from "@/game/share";
+import type { Mood } from "./Bot";
 import { Mark } from "./Logo";
 import { Results } from "./Results";
 import { Review } from "./Review";
-import { TableWindow, type Flight, type SeatVM, type Tone } from "./TableWindow";
+import { TableWindow, type Deliberation, type Flight, type SeatVM, type Tone } from "./TableWindow";
 
-export const BEST_RUN_KEY = "bluff_run_best_v1";
+export const BEST_RUN_KEY = "bluff_run_best_v2";
 export function saveBestRun(s: RunStats) {
   try {
     const prev = JSON.parse(localStorage.getItem(BEST_RUN_KEY) || "null") as RunStats | null;
@@ -22,9 +24,8 @@ export function saveBestRun(s: RunStats) {
   } catch { /* storage unavailable */ }
 }
 
-type Phase = "hand" | "handDone" | "waitingBg" | "roundCleared" | "stageCleared" | "runOver";
+type Phase = "hand" | "handDone" | "stageCleared" | "runOver";
 type Status = { text: string; tone: Tone };
-interface BgJob { id: string; done: boolean; total: number; tablesDone: number; hands: number }
 
 const statusFor = (a: Action, allIn: boolean): Status => {
   if (a.type === "fold") return { text: "Folded", tone: "fold" };
@@ -33,23 +34,31 @@ const statusFor = (a: Action, allIn: boolean): Status => {
   return { text: allIn ? "All in" : `Raised to ${a.to.toLocaleString()}`, tone: "raise" };
 };
 
+/** Rough strength of the seat's own hand, for the timing tell. */
+function strong(h: HandState, i: number): boolean {
+  const s = h.seats[i];
+  if (h.board.length >= 3) return evaluate(s.hole.concat(h.board)).category >= 2;
+  const r = s.hole.map((c) => c % 13);
+  return r[0] === r[1] || Math.min(...r) >= 10;
+}
+
 export function Arena() {
-  const [avail, setAvail] = useState<{ configured: boolean; models: { id: string }[] } | null>(null);
+  const params = useSearchParams();
+  const [seed] = useState(() => { const q = params.get("council"); return q === "random" ? newSeed() : q && /^[A-Z0-9]{4,8}$/i.test(q) ? q.toUpperCase() : todaySeed(); });
+  const daily = seed === todaySeed() ? dailyNumber() : 0;
+
+  const [configured, setConfigured] = useState<boolean | null>(null);
   const [stageIdx, setStageIdx] = useState(0);
-  const [roundNo, setRoundNo] = useState(1);
-  const [tableOpps, setTableOpps] = useState<Opponent[]>([]);
-  const [bgTables, setBgTables] = useState<Opponent[][]>([]);
-  const [bgJob, setBgJob] = useState<BgJob | null>(null);
-  const [bgWinners, setBgWinners] = useState<Opponent[]>([]);
+  const [council, setCouncil] = useState<Member[]>([]);
   const [hand, setHand] = useState<HandState | null>(null);
   const [dealer, setDealer] = useState(0);
   const [handNo, setHandNo] = useState(1);
   const [phase, setPhase] = useState<Phase>("hand");
-  const [stats, setStats] = useState<RunStats>(emptyStats);
-  const [thinking, setThinking] = useState<string | null>(null);
-  const [thinkStart, setThinkStart] = useState(0);
-  const [intro, setIntro] = useState(false);
-  const [youVariant] = useState(() => [0, 4, 3, 1][Math.floor(Math.random() * 4)]);
+  const [stats, setStats] = useState<RunStats>(() => emptyStats(seed, daily));
+  const [thinking, setThinking] = useState(false);
+  const [delib, setDelib] = useState<Deliberation | null>(null);
+  const [seatShape, setSeatShape] = useState(0);
+  const [tellMood, setTellMood] = useState<Mood | null>(null);
   const [statuses, setStatuses] = useState<Record<string, Status>>({});
   const [raiseOpen, setRaiseOpen] = useState(false);
   const [raiseTo, setRaiseTo] = useState(0);
@@ -57,104 +66,80 @@ export function Arena() {
   const [runLog, setRunLog] = useState<HandRecord[]>([]);
   const [flights, setFlights] = useState<Flight[]>([]);
   const [pendingWin, setPendingWin] = useState<Record<string, number>>({});
+  const [intro, setIntro] = useState(false);
+  const [youVariant] = useState(() => [0, 4, 3, 1][Math.floor(Math.random() * 4)]);
+  const decisions = useRef<Record<number, Decision>>({});
+  const startStacks = useRef(new Map<string, number>());
+  const processed = useRef(-1);
+  const lock = useRef(false);
+  const tiltUntil = useRef(0);
   const flightSeq = useRef(0);
-  const fly = useCallback((items: Omit<Flight, "id">[], ttl = 900) => {
+  const lastSeatDecision = useRef<Decision | null>(null);
+
+  const names = useMemo(() => new Map<string, string>([[PLAYER_ID, "You"], [SEAT_ID, "Jev"]]), []);
+  const stageN = STAGES[stageIdx];
+
+  const fly = useCallback((items: Omit<Flight, "id">[], ttl = 1300) => {
     if (!items.length) return;
     const batch = items.map((f) => ({ ...f, id: ++flightSeq.current }));
     setFlights((prev) => [...prev, ...batch]);
     setTimeout(() => setFlights((prev) => prev.filter((f) => !batch.some((b) => b.id === f.id))), ttl);
   }, []);
-  const decisions = useRef<Record<number, Decision>>({});
-  const startStacks = useRef(new Map<string, number>());
-  const processed = useRef(-1);
-  const lock = useRef(false);
 
-  const names = useMemo(() => new Map<string, string>([[PLAYER_ID, "You"], ...tableOpps.map((o) => [o.id, o.name] as [string, string])]), [tableOpps]);
-  const models = useMemo(() => new Map(tableOpps.map((o) => [o.id, o.model])), [tableOpps]);
-  const personas = useMemo(() => new Map(tableOpps.map((o) => [o.id, o.persona])), [tableOpps]);
-  const oppById = useMemo(() => new Map(tableOpps.map((o) => [o.id, o])), [tableOpps]);
-  const modelIds = useCallback(() => avail?.models.map((m) => m.id) ?? ["jev"], [avail]);
-
-  const deal = useCallback((seats: { id: string; stack: number }[], d: number, n: number) => {
+  const deal = useCallback((seats: { id: string; stack: number }[], d: number, n: number, stage: number) => {
     const [sb, bb] = blindsFor(n);
     decisions.current = {};
+    lastSeatDecision.current = null;
     startStacks.current = new Map(seats.map((s) => [s.id, s.stack]));
     processed.current = -1;
-    const h = dealHand(seats, d, sb, bb, n);
+    // the deck is seeded too, so a daily council deals everyone the same hands
+    const h = dealHand(seats, d, sb, bb, n, rngFrom(hashSeed(`${seed}:${stage}:${n}`)));
     setHand({ ...h });
     setStatuses({});
+    setDelib(null);
     setRaiseOpen(false);
     setPhase("hand");
     setHandNo(n);
+    setDealer(d);
     setIntro(true);
     setTimeout(() => setIntro(false), 2600);
-    setDealer(d);
-  }, []);
+  }, [seed]);
 
-  const startRound = useCallback((field: Opponent[], round: number, stage: number) => {
-    const { mine, others } = splitRound(field);
-    setTableOpps(mine);
-    setBgTables(others);
-    setBgWinners([]);
-    setBgJob(null);
-    setRoundNo(round);
+  const startStage = useCallback((stage: number) => {
     setStageIdx(stage);
-    if (others.length) {
-      fetch("/api/simulate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tables: others }) })
-        .then((r) => r.json())
-        .then((d: { id?: string }) => d.id && setBgJob({ id: d.id, done: false, total: others.length, tablesDone: 0, hands: 0 }))
-        .catch(() => {});
-    }
-    deal([{ id: PLAYER_ID, stack: START_STACK }, ...mine.map((o) => ({ id: o.id, stack: START_STACK }))], 0, 1);
-  }, [deal]);
-
-  const startStage = useCallback((stage: number, ids: string[]) => startRound(rosterForStage(stage, ids), 1, stage), [startRound]);
+    setCouncil(buildCouncil(stage, seed, STAGES[stage]));
+    setSeatShape(0);
+    tiltUntil.current = 0;
+    deal([{ id: PLAYER_ID, stack: START_STACK }, { id: SEAT_ID, stack: START_STACK }], hashSeed(`${seed}:${stage}`) % 2, 1, stage);
+  }, [deal, seed]);
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/decide").then((r) => (r.ok ? r.json() : { configured: false, models: [] })).catch(() => ({ configured: false, models: [] }))
-      .then((d: { configured: boolean; models: { id: string }[] }) => {
+    fetch("/api/council").then((r) => (r.ok ? r.json() : { configured: false })).catch(() => ({ configured: false }))
+      .then((d: { configured: boolean; mock?: boolean }) => {
         if (cancelled) return;
-        setAvail(d);
-        if (d.configured) startStage(0, d.models.map((m) => m.id));
+        setConfigured(d.configured);
+        // dev shortcut: with BLUFF_MOCK on, ?stage=5 opens at that stage
+        const jump = d.mock ? Math.min(STAGES.length, Math.max(1, Number(params.get("stage")) || 1)) - 1 : 0;
+        if (d.configured) startStage(jump);
       });
     return () => { cancelled = true; };
-  }, [startStage]);
-
-  // background tables: poll until done
-  useEffect(() => {
-    if (!bgJob || bgJob.done) return;
-    const id = bgJob.id;
-    const tick = async () => {
-      try {
-        const d = (await (await fetch(`/api/simulate?id=${id}`)).json()) as BgJob & { winners: Opponent[] };
-        setBgJob((prev) => (prev && prev.id === id ? { ...prev, done: d.done, total: d.total, tablesDone: d.tablesDone, hands: d.hands } : prev));
-        if (d.done) setBgWinners(d.winners);
-      } catch { /* next tick */ }
-    };
-    tick();
-    const t = setInterval(tick, 3000);
-    return () => clearInterval(t);
-  }, [bgJob?.id, bgJob?.done]);
-  useEffect(() => { if (phase === "waitingBg" && bgWinners.length) setPhase("roundCleared"); }, [phase, bgWinners]);
+  }, [startStage, params]);
 
   const nextHand = useCallback(() => {
     if (!hand) return;
     const survivors = liveSeats(hand).map((s) => ({ id: s.id, stack: s.stack }));
     if (survivors.length <= 1) return;
-    deal(survivors, (dealer + 1) % survivors.length, handNo + 1);
-  }, [hand, dealer, handNo, deal]);
+    deal(survivors, (dealer + 1) % survivors.length, handNo + 1, stageIdx);
+  }, [hand, dealer, handNo, stageIdx, deal]);
 
   const applyAction = useCallback((h: HandState, a: Action, decision?: Decision) => {
     const i = h.toAct, seat = h.seats[i];
     const prevStreet = h.street;
     const before = h.seats.map((s) => ({ id: s.id, bet: s.bet, committed: s.committed }));
-    if (decision) decisions.current[h.log.length] = decision;
+    if (decision) { decisions.current[h.log.length] = decision; if (seat.id === SEAT_ID) lastSeatDecision.current = decision; }
     act(h, a);
-    if (h.street !== prevStreet) {
-      // street closed: everyone's chips slide into the pot
-      fly(before.map((b) => ({ from: b.id, to: "pot", amount: b.bet + (b.id === seat.id ? seat.committed - b.committed : 0) })).filter((f) => f.amount > 0));
-    }
+    if (h.street !== prevStreet) fly(before.map((b) => ({ from: b.id, to: "pot", amount: b.bet + (b.id === seat.id ? seat.committed - b.committed : 0) })).filter((f) => f.amount > 0));
     const st = statusFor(a, seat.allIn);
     setStatuses((prev) => ({ ...(h.street !== prevStreet && h.street !== "done" ? {} : prev), [seat.id]: st }));
     setHand({ ...h });
@@ -166,34 +151,68 @@ export function Arena() {
     applyAction(hand, a);
   }, [hand, phase, applyAction]);
 
-  // opponents act
+  // the council votes
   useEffect(() => {
     if (!hand || phase !== "hand" || hand.street === "done" || hand.toAct < 0) return;
     const actor = hand.seats[hand.toAct];
-    if (actor.id === PLAYER_ID || lock.current) return;
+    if (actor.id !== SEAT_ID || lock.current || !council.length) return;
     lock.current = true;
-    const model = oppById.get(actor.id)?.model ?? "jev";
-    const view = buildView(hand, hand.toAct, names, personas, STAGES[stageIdx]);
-    setThinking(actor.id);
-    setThinkStart(Date.now());
+    const view = buildView(hand, hand.toAct, names, stageN);
+    const allowed = allowedChoices(view);
+    const allowedFlags = { fold: allowed.includes("fold"), raise: allowed.includes("raise_small") };
+    const total = council.length;
+    const counts = { fold: 0, call: 0, raise: 0 };
+    const votes: Vote[] = [];
+    setThinking(true);
+    setDelib({ counts: { ...counts }, total, done: false, allowed: allowedFlags });
     let cancelled = false;
     (async () => {
       const t0 = Date.now();
-      let d: Decision | null = null;
       try {
-        const res = await fetch("/api/decide", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model, view }) });
-        if (res.ok) d = (await res.json()) as Decision;
-      } catch { /* timed out below */ }
-      d ??= timedOutDecision(view, model);
-      const wait = 650 - (Date.now() - t0);
+        const res = await fetch("/api/council", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ members: council, view, tilted: handNo <= tiltUntil.current }) });
+        if (res.ok && res.body) {
+          const reader = res.body.getReader();
+          const dec = new TextDecoder();
+          let buf = "";
+          for (;;) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buf += dec.decode(value, { stream: true });
+            let nl;
+            while ((nl = buf.indexOf("\n")) >= 0) {
+              const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
+              if (!line) continue;
+              const v = JSON.parse(line) as Vote;
+              votes.push(v); counts[groupOf(v.choice)]++;
+              if (!cancelled) setDelib({ counts: { ...counts }, total, done: false, allowed: allowedFlags });
+            }
+          }
+        }
+      } catch { /* treated as timeouts below */ }
+      for (const m of council) if (!votes.some((v) => v.member === m.id)) { const v: Vote = { member: m.id, choice: timedOutChoice(view), timedOut: true }; votes.push(v); counts[groupOf(v.choice)]++; }
+      const t = tally(votes, allowed);
+      const decision: Decision = { choice: t.choice, votes, counts: t.counts, carriedBy: t.carriedBy, timedOut: votes.every((v) => v.timedOut) };
+      const carrier = council.find((m) => t.carriedBy.includes(m.id) && m.archetype !== "plain") ?? council.find((m) => t.carriedBy.includes(m.id));
+      // the timing tell: a council with a timing member takes longer when the seat is strong
+      const timing = council.some((m) => m.tell === "timing") && strong(hand, hand.toAct) ? 1400 : 0;
+      const minimum = Math.min(2600, 900 + total * 12) + timing;
+      const wait = minimum - (Date.now() - t0);
       if (wait > 0) await new Promise((r) => setTimeout(r, wait));
       if (cancelled) return;
+      setDelib({ counts: t.counts, total, done: true, allowed: allowedFlags, carried: carrier && total > 1 ? `${carrier.name} the ${ARCHETYPES[carrier.archetype].label} carried it` : undefined });
+      if (carrier) setSeatShape(carrier.shape);
+      // visual tells: wide eyes before a raise, a blink before a fold
+      const g = groupOf(t.choice);
+      const tellMs = g === "raise" && council.some((m) => m.tell === "wide_eyes") ? 520 : g === "fold" && council.some((m) => m.tell === "blink") ? 420 : 0;
+      if (tellMs) { setTellMood(g === "raise" ? "allin" : "fold"); await new Promise((r) => setTimeout(r, tellMs)); setTellMood(null); }
+      if (cancelled) return;
       lock.current = false;
-      setThinking(null);
-      applyAction(hand, resolveChoice(hand, hand.toAct, d.choice), d);
+      setThinking(false);
+      applyAction(hand, resolveChoice(hand, hand.toAct, t.choice), decision);
+      setTimeout(() => setDelib((d) => (d?.done ? null : d)), 1800);
     })();
     return () => { cancelled = true; lock.current = false; };
-  }, [hand, phase, oppById, names, personas, stageIdx, applyAction]);
+  }, [hand, phase, council, names, stageN, handNo, applyAction]);
 
   // hand finished
   useEffect(() => {
@@ -203,52 +222,50 @@ export function Arena() {
     const ws = hand.result?.winners ?? [];
     setPendingWin(Object.fromEntries(ws.map((w) => [w.seat, w.amount])));
     const delay = hand.result?.showdown ? 1400 : 500;
-    const t1 = setTimeout(() => { fly(ws.map((w) => ({ from: "pot", to: w.seat, amount: w.amount })), 1000); }, delay);
-    const t2 = setTimeout(() => setPendingWin({}), delay + 800);
-    setRunLog((log) => [...log, recordHand(hand, decisions.current, names, models, startStacks.current, STAGES[stageIdx], roundNo)]);
+    const t1 = setTimeout(() => fly(ws.map((w) => ({ from: "pot", to: w.seat, amount: w.amount })), 1400), delay);
+    const t2 = setTimeout(() => setPendingWin({}), delay + 1100);
+    setRunLog((log) => [...log, recordHand(hand, decisions.current, names, startStacks.current, stageN)]);
     const youSeat = hand.seats.find((s) => s.id === PLAYER_ID);
+    const jev = hand.seats.find((s) => s.id === SEAT_ID);
     const busted = !youSeat || youSeat.stack === 0;
-    const alive = liveSeats(hand);
-    const cleared = !busted && alive.length === 1;
-    const won = hand.result?.winners.find((w) => w.seat === PLAYER_ID);
+    const cleared = !busted && Boolean(jev) && jev!.stack === 0;
+    const won = ws.find((w) => w.seat === PLAYER_ID);
     const ev = youSeat && !youSeat.folded && hand.board.length >= 3 ? evaluate(youSeat.hole.concat(hand.board)) : null;
+    // tilt: the seat lost a big pot
+    if (jev && (startStacks.current.get(SEAT_ID) ?? 0) - jev.stack >= 0.4 * (startStacks.current.get(SEAT_ID) ?? 1)) tiltUntil.current = hand.handNo + 3;
     setStatuses((prev) => {
       const next = { ...prev };
-      const winIds = new Set((hand.result?.winners ?? []).map((w) => w.seat));
-      if (hand.result?.showdown) {
-        for (const s of hand.seats) if (!s.folded) next[s.id] = { text: evaluate(s.hole.concat(hand.board)).label, tone: winIds.has(s.id) ? "win" : "plain" };
-      }
-      for (const w of hand.result?.winners ?? []) if (!hand.result?.showdown) next[w.seat] = { text: `Wins ${w.amount.toLocaleString()}`, tone: "win" };
+      const winIds = new Set(ws.map((w) => w.seat));
+      if (hand.result?.showdown) for (const s of hand.seats) { if (!s.folded) next[s.id] = { text: evaluate(s.hole.concat(hand.board)).label, tone: winIds.has(s.id) ? "win" : "plain" }; }
+      else for (const w of ws) next[w.seat] = { text: `Wins ${w.amount.toLocaleString()}`, tone: "win" };
       return next;
     });
     setStats((prev) => {
       const next: RunStats = {
         ...prev, stageIdx, hands: prev.hands + 1,
-        beaten: prev.beaten + hand.seats.filter((s) => s.id !== PLAYER_ID && s.stack === 0).length + (cleared ? bgTables.reduce((t, x) => t + x.length - 1, 0) : 0),
         biggestPot: Math.max(prev.biggestPot, won?.amount ?? 0),
         bestHand: won && ev && ev.score > prev.bestHandScore ? ev.label : prev.bestHand,
         bestHandScore: won && ev ? Math.max(prev.bestHandScore, ev.score) : prev.bestHandScore,
       };
-      if (cleared && bgTables.length === 0) { next.cleared = stageIdx + 1; if (stageIdx === STAGES.length - 1) next.won = true; }
+      if (cleared) { next.cleared = stageIdx + 1; next.beaten = prev.beaten + stageN; if (stageIdx === STAGES.length - 1) next.won = true; }
+      if (busted) { const d = lastSeatDecision.current; if (d?.counts && d.votes && d.votes.length > 1) next.bust = { ...d.counts, choice: d.choice }; }
       if (busted || next.won) saveBestRun(next);
       return next;
     });
-    // The table waits for the player to deal the next hand. Only busts and cleared tables move on by themselves.
     if (!busted && !cleared) return () => { clearTimeout(t1); clearTimeout(t2); };
-    const t = setTimeout(() => {
-      if (busted) setPhase("runOver");
-      else setPhase(bgTables.length ? (bgWinners.length ? "roundCleared" : "waitingBg") : stageIdx === STAGES.length - 1 ? "runOver" : "stageCleared");
-    }, hand.result?.showdown ? 5200 : 2400);
+    const t = setTimeout(() => setPhase(busted ? "runOver" : stageIdx === STAGES.length - 1 ? "runOver" : "stageCleared"), hand.result?.showdown ? 5200 : 2400);
     return () => { clearTimeout(t); clearTimeout(t1); clearTimeout(t2); };
-  }, [hand, stageIdx, roundNo, names, models, bgTables, bgWinners, nextHand, fly]);
+  }, [hand, stageIdx, stageN, names, fly]);
 
   const advance = useCallback(() => {
-    if (phase === "stageCleared") startStage(stageIdx + 1, modelIds());
-    else if (phase === "roundCleared") startRound(bgWinners, roundNo + 1, stageIdx);
+    if (phase === "stageCleared") startStage(stageIdx + 1);
     else if (phase === "handDone") nextHand();
-  }, [phase, stageIdx, roundNo, bgWinners, startStage, startRound, nextHand, modelIds]);
+  }, [phase, stageIdx, startStage, nextHand]);
 
-  const restart = () => { setStats(emptyStats()); setRunLog([]); startStage(0, modelIds()); };
+  const restart = (sameCouncil: boolean) => {
+    if (!sameCouncil) { window.location.href = "/play?council=random"; return; }
+    setStats(emptyStats(seed, daily)); setRunLog([]); startStage(0);
+  };
 
   // keyboard
   useEffect(() => {
@@ -258,10 +275,7 @@ export function Arena() {
       if (k === "escape") { setRaiseOpen(false); setDrawer(null); return; }
       if (k === "h") { setDrawer((d) => (d === "help" ? null : "help")); return; }
       if (k === "l") { setDrawer((d) => (d === "log" ? null : "log")); return; }
-      if (e.code === "Space" || k === "n" || k === "enter") {
-        if (phase === "handDone" || phase === "stageCleared" || phase === "roundCleared") { e.preventDefault(); advance(); }
-        return;
-      }
+      if (e.code === "Space" || k === "n" || k === "enter") { if (phase === "handDone" || phase === "stageCleared") { e.preventDefault(); advance(); } return; }
       if (!hand || phase !== "hand" || hand.street === "done" || hand.seats[hand.toAct]?.id !== PLAYER_ID) return;
       const L = legal(hand);
       if (k === "f") you(L.canCheck ? { type: "check" } : { type: "fold" });
@@ -280,104 +294,80 @@ export function Arena() {
   }, [hand, phase]);
 
   // ---------- view ----------
-  const stageN = STAGES[stageIdx];
-  const totalRounds = roundsForStage(stageN);
   const youIdx = hand ? hand.seats.findIndex((s) => s.id === PLAYER_ID) : -1;
+  const jevIdx = hand ? hand.seats.findIndex((s) => s.id === SEAT_ID) : -1;
   const youSeat = hand && youIdx >= 0 ? hand.seats[youIdx] : null;
+  const jevSeat = hand && jevIdx >= 0 ? hand.seats[jevIdx] : null;
   const yourTurn = Boolean(hand && phase === "hand" && hand.street !== "done" && hand.toAct === youIdx);
   const L = hand && yourTurn ? legal(hand) : null;
   const pot = hand ? potSize(hand) : 0;
+  const done = hand?.street === "done";
   const winners = new Set(hand?.result?.winners.map((w) => w.seat) ?? []);
-  const revealed = new Set(hand?.result?.revealed ?? []);
   const youWon = hand?.result?.winners.find((w) => w.seat === PLAYER_ID);
   const heroEval = youSeat && !youSeat.folded && hand && hand.board.length >= 3 ? evaluate(youSeat.hole.concat(hand.board)).label : null;
-
-  const done = hand?.street === "done";
-  const moodFor = (id: string, s?: { folded: boolean; allIn: boolean }, statusTone?: Tone): Mood => {
-    if (!s) return "out";
-    if (thinking === id) return "think";
-    if (done && winners.has(id)) return "win";
-    if (s.folded) return "fold";
-    if (done && hand?.result?.showdown) return "lose";
-    if (s.allIn) return "allin";
-    if (statusTone === "raise") return "raise";
-    return "idle";
-  };
   const firstWinner = hand?.result?.winners[0];
   const winSeat = firstWinner ? hand!.seats.find((s) => s.id === firstWinner.seat) : null;
   const highlight = done && hand?.result?.showdown && winSeat ? new Set(bestFive(winSeat.hole.concat(hand!.board))) : null;
 
-  const seats: SeatVM[] = tableOpps.map((o) => {
-    const s = hand?.seats.find((x) => x.id === o.id);
-    const idx = hand ? hand.seats.findIndex((x) => x.id === o.id) : -1;
-    return {
-      id: o.id, name: o.name, model: o.model, persona: o.persona, mood: moodFor(o.id, s, statuses[o.id]?.tone), variant: Number(o.id.split("-").pop() ?? 0) % 8,
-      stack: (s?.stack ?? 0) - (pendingWin[o.id] ?? 0), bet: hand?.street === "done" ? 0 : s?.bet ?? 0, folded: s?.folded ?? false, allIn: s?.allIn ?? false, out: !s,
-      hole: s && (revealed.has(o.id) || (hand?.street === "done" && hand.result?.showdown && !s.folded)) ? s.hole : null,
-      status: thinking === o.id ? { text: "Thinking", tone: "think" } : statuses[o.id] ?? null,
-      dealer: idx >= 0 && hand?.dealer === idx, turn: Boolean(hand && phase === "hand" && hand.street !== "done" && hand.toAct === idx), winner: winners.has(o.id),
-    };
-  });
+  const moodFor = (id: string, s: { folded: boolean; allIn: boolean } | null, tone?: Tone): Mood => {
+    if (!s) return "out";
+    if (id === SEAT_ID && tellMood) return tellMood;
+    if (id === SEAT_ID && thinking) return "think";
+    if (done && winners.has(id)) return "win";
+    if (s.folded) return "fold";
+    if (done && hand?.result?.showdown) return "lose";
+    if (s.allIn) return "allin";
+    if (tone === "raise") return "raise";
+    return "idle";
+  };
 
-  const otherCount = bgTables.reduce((t, x) => t + x.length, 0);
+  const seatVM: SeatVM | null = jevSeat ? {
+    id: SEAT_ID, name: "Jev", mood: moodFor(SEAT_ID, jevSeat, statuses[SEAT_ID]?.tone), variant: seatShape, sub: stageN > 1 ? `council of ${stageN}` : undefined,
+    stack: jevSeat.stack - (pendingWin[SEAT_ID] ?? 0), bet: done ? 0 : jevSeat.bet, folded: jevSeat.folded, allIn: jevSeat.allIn, out: jevSeat.stack === 0 && !done,
+    hole: done && hand?.result?.showdown && !jevSeat.folded ? jevSeat.hole : null,
+    status: thinking ? { text: stageN > 1 ? "Deliberating" : "Thinking", tone: "think" } : statuses[SEAT_ID] ?? null,
+    dealer: hand?.dealer === jevIdx, turn: Boolean(hand && phase === "hand" && hand.street !== "done" && hand.toAct === jevIdx), winner: winners.has(SEAT_ID),
+  } : null;
+
   const potView = (() => {
-    if (!hand) return { label: "Pot", value: 0, note: "" as string, tone: undefined as "win" | "lose" | undefined };
-    if (phase === "stageCleared") return { label: `Stage ${stageIdx + 1} cleared`, value: STAGES[stageIdx + 1], note: `${STAGES[stageIdx + 1]} opponents next, stacks reset`, tone: "win" as const };
-    if (phase === "roundCleared") return { label: "Table cleared", value: bgWinners.length, note: `${bgWinners.length === 1 ? "winner from the other table comes" : "winners from the other tables come"} back for you`, tone: "win" as const };
-    if (phase === "waitingBg") return { label: "Table cleared", value: bgJob ? bgJob.tablesDone : 0, note: `of ${bgTables.length} other tables finished, Jev is still playing them`, tone: "win" as const };
-    if (hand.street === "done" && hand.result) {
-      const w = hand.result.winners;
-      const first = w[0];
-      const label = w.length > 1 ? "Split pot" : first.seat === PLAYER_ID ? "You win" : `${names.get(first.seat)} wins`;
+    if (!hand) return { label: "Pot", value: 0, note: "", tone: undefined as "win" | "lose" | undefined };
+    if (phase === "stageCleared") return { label: `Stage ${stageIdx + 1} cleared`, value: STAGES[stageIdx + 1], note: "Jevs on the council next, stacks reset", tone: "win" as const };
+    if (done && hand.result) {
+      const w = hand.result.winners, first = w[0];
+      const label = w.length > 1 ? "Split pot" : first.seat === PLAYER_ID ? "You win" : "Jev wins";
       return { label, value: w.reduce((t, x) => t + x.amount, 0), note: first.label ? `with ${first.label.toLowerCase()}` : "everyone else folded", tone: first.seat === PLAYER_ID ? ("win" as const) : ("lose" as const) };
     }
-    if (intro && phase === "hand") return { label: `Hand ${handNo}`, value: pot, note: `Stage ${stageIdx + 1}, ${stageN} ${stageN === 1 ? "opponent" : "opponents"}, blinds ${hand.sb}/${hand.bb}`, tone: undefined };
+    if (intro && phase === "hand") return { label: `Hand ${handNo}`, value: pot, note: `Stage ${stageIdx + 1}, Jev ×${stageN}, blinds ${hand.sb}/${hand.bb}`, tone: undefined };
     return { label: "Pot", value: pot, note: hand.street === "preflop" ? "" : hand.street[0].toUpperCase() + hand.street.slice(1), tone: undefined };
   })();
 
   const turn = (() => {
     if (!hand) return { text: "Setting the table", progress: 0 };
     if (phase === "handDone") return { text: "Next hand", sub: "Space", progress: 100 };
-    if (phase === "stageCleared" || phase === "roundCleared") return { text: "Deal", sub: "Space", progress: 100, gold: true };
-    if (phase === "waitingBg") return { text: "Other tables", sub: bgJob ? `${bgJob.tablesDone}/${bgJob.total}` : "", progress: bgJob ? (bgJob.tablesDone / bgJob.total) * 100 : 0 };
+    if (phase === "stageCleared") return { text: "Deal", sub: "Space", progress: 100, gold: true };
     if (yourTurn) return { text: "Your turn", progress: 100, gold: true };
-    if (thinking) return { text: `${names.get(thinking)} is thinking`, progress: 100 };
+    if (thinking) return { text: stageN > 1 ? "The council is voting" : "Jev is thinking", progress: 100 };
     return { text: "Dealing", progress: 100 };
   })();
-
-  const banner = !hand ? null
-    : phase === "stageCleared" ? { key: `stage-${stageIdx}`, title: `Stage ${stageIdx + 1} cleared`, sub: `${STAGES[stageIdx + 1]} opponents next`, big: true }
-    : null;
 
   const presets = L ? [
     { label: "Min", to: L.minRaiseTo },
     { label: "Half pot", to: Math.round(hand!.currentBet + (pot + L.toCall) * 0.5) },
     { label: "Pot", to: Math.round(hand!.currentBet + pot + L.toCall) },
     { label: "All in", to: L.maxRaiseTo },
-  ].map((p) => ({ ...p, to: Math.max(L.minRaiseTo, Math.min(L.maxRaiseTo, p.to)) })) : [];
+  ].map((x) => ({ ...x, to: Math.max(L.minRaiseTo, Math.min(L.maxRaiseTo, x.to)) })) : [];
 
   const actions = (() => {
     if (!hand) return null;
     if (yourTurn && L) return (
       <>
-        <button type="button" className={`text-btn ${L.canCheck ? "" : "text-fold"}`} onClick={() => you(L.canCheck ? { type: "check" } : { type: "fold" })}>
-          <FoldIcon />{L.canCheck ? "Check" : "Fold"}<span className="key">F</span>
-        </button>
-        {L.canRaise && (
-          <button type="button" className="text-btn text-raise" onClick={() => (raiseOpen ? you({ type: "raise", to: raiseTo }) : setRaiseOpen(true))}>
-            <RaiseIcon />{raiseOpen ? `${hand.currentBet === 0 ? "Bet" : "Raise to"} ${raiseTo.toLocaleString()}` : hand.currentBet === 0 ? "Bet" : "Raise"}<span className="key">R</span>
-          </button>
-        )}
-        {!L.canCheck && (
-          <button type="button" className="text-btn" onClick={() => you({ type: "call" })}>
-            <CallIcon />{L.toCall >= youSeat!.stack ? `Call all in` : `Call ${L.toCall.toLocaleString()}`}<span className="key">C</span>
-          </button>
-        )}
+        <button type="button" className={`text-btn ${L.canCheck ? "" : "text-fold"}`} onClick={() => you(L.canCheck ? { type: "check" } : { type: "fold" })}><FoldIcon />{L.canCheck ? "Check" : "Fold"}<span className="key">F</span></button>
+        {L.canRaise && <button type="button" className="text-btn text-raise" onClick={() => (raiseOpen ? you({ type: "raise", to: raiseTo }) : setRaiseOpen(true))}><RaiseIcon />{raiseOpen ? `${hand.currentBet === 0 ? "Bet" : "Raise to"} ${raiseTo.toLocaleString()}` : hand.currentBet === 0 ? "Bet" : "Raise"}<span className="key">R</span></button>}
+        {!L.canCheck && <button type="button" className="text-btn" onClick={() => you({ type: "call" })}><CallIcon />{L.toCall >= youSeat!.stack ? "Call all in" : `Call ${L.toCall.toLocaleString()}`}<span className="key">C</span></button>}
       </>
     );
     if (phase === "handDone" && liveSeats(hand).length > 1 && youSeat && youSeat.stack > 0) return <button type="button" className="text-btn" onClick={advance}><NextIcon />Next hand<span className="key">N</span></button>;
-    if (phase === "stageCleared") return <button type="button" className="text-btn text-raise" onClick={advance}><NextIcon />Deal stage {stageIdx + 2}, {STAGES[stageIdx + 1]} opponents<span className="key">N</span></button>;
-    if (phase === "roundCleared") return <button type="button" className="text-btn text-raise" onClick={advance}><NextIcon />Deal round {roundNo + 1}<span className="key">N</span></button>;
+    if (phase === "stageCleared") return <button type="button" className="text-btn text-raise" onClick={advance}><NextIcon />Deal stage {stageIdx + 2}, Jev ×{STAGES[stageIdx + 1]}<span className="key">N</span></button>;
     return null;
   })();
 
@@ -385,17 +375,17 @@ export function Arena() {
     <>
       <button type="button" className="text-btn text-muted" onClick={() => setDrawer(drawer === "help" ? null : "help")}><span className="meta-dot">?</span>Help<span className="key">H</span></button>
       <button type="button" className="text-btn text-muted" onClick={() => setDrawer(drawer === "log" ? null : "log")}><LogIcon />Log<span className="key">L</span></button>
-      <button type="button" className="text-btn text-muted" onClick={restart}>Restart</button>
+      <button type="button" className="text-btn text-muted" onClick={() => restart(true)}>Restart</button>
     </>
   );
+
+  const banner = hand && phase === "stageCleared" ? { key: `stage-${stageIdx}`, title: `Stage ${stageIdx + 1} cleared`, sub: `Jev ×${STAGES[stageIdx + 1]} next`, big: true } : null;
 
   const floating = (
     <>
       {raiseOpen && L && (
         <div className="raise-pop">
-          <div className="raise-row">
-            {presets.map((p) => <button key={p.label} type="button" className={`pill ${raiseTo === p.to ? "active" : ""}`} onClick={() => setRaiseTo(p.to)}>{p.label}</button>)}
-          </div>
+          <div className="raise-row">{presets.map((x) => <button key={x.label} type="button" className={`pill ${raiseTo === x.to ? "active" : ""}`} onClick={() => setRaiseTo(x.to)}>{x.label}</button>)}</div>
           <div className="raise-slider">
             <input type="range" min={L.minRaiseTo} max={L.maxRaiseTo} step={Math.max(1, Math.floor(hand!.bb / 2))} value={raiseTo} onChange={(e) => setRaiseTo(Number(e.target.value))} aria-label="Raise to" />
             <strong className="num">{raiseTo.toLocaleString()}</strong>
@@ -404,8 +394,8 @@ export function Arena() {
       )}
       {drawer === "help" && (
         <aside className="drawer">
-          <div className="drawer-head">Controls<button type="button" className="drawer-close" onClick={() => setDrawer(null)} aria-label="Close">×</button></div>
-          <p className="drawer-copy">Take every chip at the table to clear the stage. Each cleared stage doubles the field: 1, 2, 4, 8, 16, 32, 64, 100. Lose your stack and the run is over.</p>
+          <div className="drawer-head">How it works<button type="button" className="drawer-close" onClick={() => setDrawer(null)} aria-label="Close">×</button></div>
+          <p className="drawer-copy">The seat across from you is a council of Jevs, each with its own style. They vote on every action and the seat does what the majority says. Take every chip to clear the stage, and the council doubles: 1, 2, 4, 8, 16, 32, 64, 100. Lose your stack and the run is over.</p>
           <div className="shortcuts">
             <div><span>Fold or check</span><kbd>F</kbd></div><div><span>Check or call</span><kbd>C</kbd></div>
             <div><span>Raise</span><kbd>R</kbd></div><div><span>Next</span><kbd>Space</kbd></div>
@@ -415,15 +405,14 @@ export function Arena() {
       {drawer === "log" && hand && (
         <aside className="drawer">
           <div className="drawer-head">Hand {hand.handNo}<button type="button" className="drawer-close" onClick={() => setDrawer(null)} aria-label="Close">×</button></div>
-          {hand.street !== "done" && <p className="drawer-copy">What Jev was thinking appears here once the hand is over, and in the review after the run.</p>}
-          {bgTables.length > 0 && <p className="drawer-copy">{otherCount} opponents on {bgTables.length} other {bgTables.length === 1 ? "table" : "tables"}, played by Jev.{bgJob ? ` ${bgJob.tablesDone} of ${bgJob.total} finished.` : ""}</p>}
+          {hand.street !== "done" && <p className="drawer-copy">How the council split appears here once the hand is over, and in the review after the run.</p>}
           <ul className="log-list num">
             {hand.log.map((e, i) => {
               const d = hand.street === "done" ? decisions.current[i] : undefined;
               return (
                 <li key={i}>
                   <span><span className="log-street">{e.street}</span>{names.get(e.seat)} {e.action}{e.amount ? ` ${e.amount.toLocaleString()}` : ""}{e.note ? ` (${e.note.toLowerCase()})` : ""}</span>
-                  {d && (d.reason ? <span className="log-thought">“{d.reason}”</span> : d.probabilities ? <span className="log-thought">{Object.entries(d.probabilities).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, p]) => `${k.replace("_", " ")} ${Math.round(p * 100)}%`).join(", ")}</span> : d.timedOut ? <span className="log-thought">timed out</span> : null)}
+                  {d?.counts && <span className="log-thought">fold {d.counts.fold}, call {d.counts.call}, raise {d.counts.raise}</span>}
                 </li>
               );
             })}
@@ -434,22 +423,28 @@ export function Arena() {
   );
 
   const overlay = (() => {
-    if (avail && !avail.configured) return (
+    if (configured === false) return (
       <div className="window-center">
         <Mark size={32} color="var(--accent)" />
-        <p>No OpenRouter key on this server. Add <code>OPENROUTER_API_KEY</code> to <code>.env.local</code> and restart. Every opponent is played through OpenRouter.</p>
+        <p>No OpenRouter key on this server. Add <code>OPENROUTER_API_KEY</code> to <code>.env.local</code> and restart. Every Jev on the council is played through OpenRouter.</p>
       </div>
     );
-    if (!avail || !hand) return <div className="window-center"><Mark size={32} color="var(--accent)" /><p>Setting the table</p></div>;
+    if (configured === null || !hand) return <div className="window-center"><Mark size={32} color="var(--accent)" /><p>Setting the table</p></div>;
     if (phase === "runOver") return (
-      <Results stats={stats} onPlayAgain={restart} right={<><div className="results-right-head"><h3>Every decision, hand by hand</h3><span className="num">{runLog.length} {runLog.length === 1 ? "hand" : "hands"}</span></div><Review hands={runLog} /></>} />
+      <Results
+        stats={stats}
+        council={memberStats(council, runLog, SEAT_ID, stageN)}
+        onPlayAgain={() => restart(false)}
+        onSameCouncil={() => restart(true)}
+        right={<><div className="results-right-head"><h3>Every decision, hand by hand</h3><span className="num">{runLog.length} {runLog.length === 1 ? "hand" : "hands"}</span></div><Review hands={runLog} members={council} /></>}
+      />
     );
     return null;
   })();
 
   return (
     <TableWindow
-      stage={{ n: stageIdx + 1, hand: handNo, cleared: stats.cleared, round: totalRounds > 1 ? `Round ${roundNo} of ${totalRounds}` : undefined }}
+      stage={{ n: stageIdx + 1, hand: handNo, cleared: stats.cleared }}
       counter={{ n: stageN, name: "Jev" }}
       blinds={hand ? `${hand.sb}/${hand.bb}` : "10/20"}
       pot={potView.value}
@@ -458,15 +453,15 @@ export function Arena() {
       potNote={potView.note}
       board={hand?.board ?? []}
       handNo={handNo}
-      seats={seats}
-      you={youSeat ? { id: PLAYER_ID, name: "You", model: "you", persona: { aggression: 1, bluff: 0, patience: 0 }, mood: moodFor(PLAYER_ID, youSeat, statuses[PLAYER_ID]?.tone), variant: youVariant, stack: youSeat.stack - (pendingWin[PLAYER_ID] ?? 0), bet: hand?.street === "done" ? 0 : youSeat.bet, folded: youSeat.folded, allIn: youSeat.allIn, out: false, hole: null, status: statuses[PLAYER_ID] ?? null, dealer: hand?.dealer === youIdx, turn: yourTurn, winner: Boolean(youWon) } : null}
-      hero={youSeat ? { hole: youSeat.hole, folded: youSeat.folded, winner: Boolean(youWon), outcome: youSeat.folded ? "Folded" : hand?.street === "done" ? (youWon ? (youWon.label ?? "You win") : heroEval) : null } : null}
-      turn={turn}
+      seat={seatVM}
+      you={youSeat ? { id: PLAYER_ID, name: "You", mood: moodFor(PLAYER_ID, youSeat, statuses[PLAYER_ID]?.tone), variant: youVariant, stack: youSeat.stack - (pendingWin[PLAYER_ID] ?? 0), bet: done ? 0 : youSeat.bet, folded: youSeat.folded, allIn: youSeat.allIn, out: false, hole: null, status: statuses[PLAYER_ID] ?? null, dealer: hand?.dealer === youIdx, turn: yourTurn, winner: Boolean(youWon) } : null}
+      hero={youSeat ? { hole: youSeat.hole, folded: youSeat.folded, winner: Boolean(youWon), outcome: youSeat.folded ? "Folded" : done ? (youWon ? (youWon.label ?? "You win") : heroEval) : null } : null}
+      deliberation={stageN > 1 ? delib : null}
       highlight={highlight}
       reveal={done && hand?.result?.showdown && winSeat ? { seatId: winSeat.id, hole: winSeat.hole, heroWon: winSeat.id === PLAYER_ID } : null}
       banner={banner}
       flights={flights}
-      thinkingSince={thinking ? thinkStart : null}
+      turn={turn}
       actions={actions}
       leftLinks={leftLinks}
       floating={floating}

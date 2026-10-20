@@ -20,3 +20,9 @@ Browser poker challenge: beat one AI, then 2, 4, 8, 16, 32, 64, 100. Survive as 
 
 ## Non-goals (MVP)
 Accounts, multiplayer, sound, other games, model comparison stats, mobile-first table (works down to tablet; phone gets a reduced table).
+
+## Revision 2026-10-20: the Council replaces the shootout
+
+The multi-table shootout (background tables, `/api/simulate`, brackets) is gone. Every stage is heads-up. The opponent seat is a council of N Jevs that vote in parallel on every action; the seat acts on the plurality (ties by probability mass). Councils are seeded: archetypes (Plain Jev, Rock, Station, Grinder, Hustler, Maniac, Clock) drawn from per-stage pools, quirks from stage 4, tells from stage 5, tilt after a big loss. The deck is seeded with the council, so a council link replays the same cards. Everyone gets the same daily council (`YYYYMMDD` seed, numbered from launch 2026-10-20); `?council=random` or a 4-char code sits at another.
+
+UI: a live vote strip beside the seat (fold/call/raise, "X the Rock carried it"), the seat's character morphs into the carrier, hidden reasoning during the hand, post-run review of every decision with its vote, and the council reveal (member, archetype, quirk/tell, best read or against-vote rate). Share card carries the ladder, Jevs outlasted and the vote that ended the run. Palette moved from lime to ivory with champagne gold; type is Outfit; characters are spring-driven bots in the x.ai bot idiom. Stacks start at 500.

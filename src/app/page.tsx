@@ -3,35 +3,29 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BEST_RUN_KEY } from "@/components/Arena";
+import { Bot } from "@/components/Bot";
 import { Mark } from "@/components/Logo";
 import { TableWindow, type SeatVM } from "@/components/TableWindow";
 import { parseCard } from "@/engine/cards";
-import { type Opponent, splitRound, STAGES } from "@/game/run";
-import { encodeRun, type RunStats } from "@/game/share";
+import { ARCHETYPES, type Archetype } from "@/game/council";
+import { STAGES } from "@/game/run";
+import { dailyNumber, encodeRun, type RunStats } from "@/game/share";
 
 const P = (s: string) => parseCard(s);
-const demoSeats: SeatVM[] = [
-  { id: "jev", name: "Jev", model: "jev", persona: { aggression: 0.58, bluff: 0.14, patience: 0.4 }, mood: "idle", variant: 2, stack: 1840, bet: 60, folded: false, allIn: false, out: false, hole: null, status: { text: "Called", tone: "call" }, dealer: false, turn: false, winner: false },
-];
-const demoYou: SeatVM = { id: "you", name: "You", model: "you", persona: { aggression: 1, bluff: 0, patience: 0 }, mood: "idle", variant: 4, stack: 1940, bet: 60, folded: false, allIn: false, out: false, hole: null, status: null, dealer: true, turn: true, winner: false };
+const demoJev: SeatVM = { id: "jev", name: "Jev", mood: "think", variant: 5, sub: "council of 16", stack: 410, bet: 0, folded: false, allIn: false, out: false, hole: null, status: { text: "Deliberating", tone: "think" }, dealer: false, turn: true, winner: false };
+const demoYou: SeatVM = { id: "you", name: "You", mood: "idle", variant: 4, stack: 530, bet: 60, folded: false, allIn: false, out: false, hole: null, status: { text: "Raised to 60", tone: "raise" }, dealer: true, turn: false, winner: false };
 
-function rounds(n: number) {
-  const rows: { seats: number; others: number; tables: number }[] = [];
-  let field = n;
-  while (field > 0) {
-    const { mine, others } = splitRound(Array.from({ length: field }, (_, i) => ({ id: String(i) }) as Opponent));
-    rows.push({ seats: mine.length, others: field - mine.length, tables: others.length });
-    field = others.length;
-  }
-  return rows;
-}
-
-function caption(n: number) {
-  const r = rounds(n);
-  if (n === 1) return "One table. You and Jev, heads-up, 500 chips each with the blinds climbing every six hands. Take the last chip to move up.";
-  if (r.length === 1) return `One table, you and ${n} Jevs. Each one plays its own style. Take every chip to move up.`;
-  return `${r.length} rounds. You and ${r[0].seats} at your table, ${r[0].others} more on ${r[0].tables} other ${r[0].tables === 1 ? "table" : "tables"} that Jev plays at the same time. Their winners come back for you.`;
-}
+const CAPTIONS: Record<number, string> = {
+  1: "One Jev, no brief. It samples its answer, so it is erratic and bluffable. Take its last chip to move up.",
+  2: "Two votes. The first time the seat can disagree with itself.",
+  4: "Four. A Grinder joins: tight, aggressive, hard to bluff.",
+  8: "Eight. A Hustler enters and the first quirks appear.",
+  16: "Sixteen. A Maniac in the room, and the first tells you can read.",
+  32: "Thirty-two. A Clock settles the vote. Someone on the council tilts.",
+  64: "Sixty-four, weighted toward the solid ones. The majority rules.",
+  100: "A hundred. Every kind of Jev, and the vote never flinches.",
+};
+const ROSTER: Archetype[] = ["plain", "rock", "station", "grinder", "hustler", "maniac", "clock"];
 
 export default function Landing() {
   const [sel, setSel] = useState(0);
@@ -47,60 +41,69 @@ export default function Landing() {
           <nav className="intro-nav" aria-label="Page">
             <a href="#table">Table</a>
             <a href="#loop">How it works</a>
-            {best && <Link href={`/r/${encodeRun(best)}`}>Best run: stage {STAGES[best.stageIdx]}</Link>}
+            {best && <Link href={`/r/${encodeRun(best)}`}>Best run: stage {best.stageIdx + 1}</Link>}
           </nav>
         </div>
         <div className="intro-copy">
-          <h1 className="intro-title">How many AI opponents can you beat?</h1>
-          <p className="intro-sub">Poker against Jev, an AI that reads your bets. Beat one, and the count doubles every round.</p>
-          <Link href="/play" className="pill pill-lime pill-lg">Sit at the table<span className="pill-sub num">1 to 100</span></Link>
+          <h1 className="intro-title">How many Jevs can you beat?</h1>
+          <p className="intro-sub">Heads-up poker against a council of AI players that vote on every move. Beat one, and next hand there are two of them in the chair.</p>
+          <Link href="/play" className="pill pill-lime pill-lg">Sit at the table<span className="pill-sub num">Daily council #{dailyNumber()}</span></Link>
         </div>
       </section>
 
       <section className="showcase" id="table" aria-label="The table">
         <TableWindow
-          stage={{ n: 1, hand: 7, cleared: 0 }}
-          counter={{ n: 1, name: "Jev" }}
+          stage={{ n: 5, hand: 3, cleared: 4 }}
+          counter={{ n: 16, name: "Jev" }}
           blinds="10/20"
-          pot={180}
+          pot={160}
           potLabel="Pot"
           potNote="Flop"
           board={[P("As"), P("Qd"), P("8d")]}
-          handNo={7}
-          seats={demoSeats}
+          handNo={3}
+          seat={demoJev}
           you={demoYou}
           hero={{ hole: [P("9h"), P("Qs")], folded: false, outcome: null, winner: false }}
-          turn={{ text: "Your turn", progress: 100, gold: true }}
+          deliberation={{ counts: { fold: 4, call: 7, raise: 2 }, total: 16, done: false, allowed: { fold: true, raise: true } }}
+          turn={{ text: "The council is voting", progress: 100 }}
           fit={{ min: 0.28 }}
-          actions={<><span className="text-btn text-fold">Fold<span className="key">F</span></span><span className="text-btn text-raise">Raise<span className="key">R</span></span><span className="text-btn">Call 60<span className="key">C</span></span></>}
         />
         <Link href="/play" className="showcase-link" aria-label="Sit at the table" />
       </section>
 
       <section className="loop" id="loop">
         <div className="loop-head">
-          <h2 className="loop-title">Beat one, and the count doubles.</h2>
-          <p className="loop-desc">The table stays the same. Every time you clear it, the number of opponents waiting for you doubles.</p>
+          <h2 className="loop-title">Beat one, and the council doubles.</h2>
+          <p className="loop-desc">Every stage is heads-up. The seat across from you is a council of Jevs, each with its own temperament, each asked the same question. The seat does what the vote says.</p>
         </div>
         <div className="track" role="tablist" aria-label="Stages">
-          {STAGES.map((s, i) => <button key={s} type="button" role="tab" aria-selected={i === sel} className={`pill num ${i === sel ? "active" : ""}`} onClick={() => setSel(i)} onMouseEnter={() => setSel(i)}>{s}</button>)}
+          {STAGES.map((s, i) => <button key={s} type="button" role="tab" aria-selected={i === sel} className={`pill num ${i === sel ? "active" : ""}`} onClick={() => setSel(i)} onMouseEnter={() => setSel(i)}>×{s}</button>)}
         </div>
         <div className="loop-readout">
           <div className="loop-readout-label num">Stage {sel + 1}</div>
-          <div className="loop-big num">{n} {n === 1 ? "opponent" : "opponents"}</div>
-          <p className="loop-caption">{caption(n)}</p>
+          <div className="loop-big num">Jev ×{n}</div>
+          <p className="loop-caption">{CAPTIONS[n]}</p>
           <Link href="/play" className="pill">Sit at the table</Link>
         </div>
         <div className="notes">
-          <div><h3>Real decisions</h3><p>Jev is TypeSafe AI's decision model. It sees the same table you do, weighs fold, call and raise, and plays from those odds. After the run, open any hand and see what it was thinking.</p></div>
-          <div><h3>The doubling loop</h3><p>1, 2, 4, 8, 16, 32, 64, then 100. Stacks reset to 500 each stage, blinds rise every six hands, and one bust ends the run.</p></div>
-          <div><h3>Past eight, a shootout</h3><p>A table seats nine. Larger fields split into tables that Jev plays while you play yours, and the winners come back to face you.</p></div>
+          <div><h3>The vote, in front of you</h3><p>Fold, call and raise fill in live as the council decides, then the seat acts. A split vote is a real moment, and you can see who carried it.</p></div>
+          <div><h3>Every kind of Jev</h3><p>Rocks, stations, grinders, hustlers, maniacs and clocks, with quirks and tells seeded per council. Each one is a real poker type with a real way to beat it.</p></div>
+          <div><h3>The reveal</h3><p>When the run ends you see every member you faced, how each one voted, and the hand where the minority was right. Then run the same council back.</p></div>
         </div>
+        <ul className="roster" aria-label="Archetypes">
+          {ROSTER.map((a) => (
+            <li key={a}>
+              <div className="avatar-wrap"><div className="avatar"><Bot id={`land-${a}`} variant={ARCHETYPES[a].shape} mood="idle" /></div></div>
+              <h3>{ARCHETYPES[a].label}</h3>
+              <p>{ARCHETYPES[a].read} <span className="roster-how">{ARCHETYPES[a].exploit}</span></p>
+            </li>
+          ))}
+        </ul>
       </section>
 
       <footer className="site-foot">
         <span className="brand" style={{ fontSize: 14 }}><Mark size={18} color="var(--accent)" />Bluff Run</span>
-        <span>How far can you go against AI?</span>
+        <span>Same council for everyone today. <Link href="/play?council=random">Practice with a random one</Link>.</span>
       </footer>
     </div>
   );

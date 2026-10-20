@@ -1,8 +1,8 @@
 import { CHOICE_CRITERIA, describeState } from "./prompt";
-import { allowedChoices, modelById, timedOutDecision, type Choice, type Decision, type ModelSpec, type PlayerView } from "./types";
+import { allowedChoices, JEV, timedOutChoice, type Choice, type PlayerView, type Vote } from "./types";
 
 const KEY = () => process.env.OPENROUTER_API_KEY;
-const MOCK = () => process.env.BLUFF_MOCK === "1"; // dev only: random legal actions, no network
+const MOCK = () => process.env.BLUFF_MOCK === "1"; // dev only: persona-flavoured random votes, no network
 export const configured = () => Boolean(KEY()) || MOCK();
 
 const headers = () => ({
@@ -12,34 +12,33 @@ const headers = () => ({
   "X-Title": "Bluff Run",
 });
 
-/** Ask a model for an action. Two attempts, then the seat times out (check or fold). */
-export async function decide(modelId: string, v: PlayerView, rng: () => number = Math.random): Promise<Decision> {
-  const spec = modelById(modelId);
+/** One member's vote. Two attempts, then it counts as a timed-out vote (check or fold). */
+export async function vote(member: string, v: PlayerView, rng: () => number = Math.random): Promise<Vote> {
   const allowed = allowedChoices(v);
-  if (MOCK()) return { choice: allowed[(rng() * allowed.length) | 0], model: spec.id };
+  if (MOCK()) return mockVote(member, v, allowed, rng);
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      return spec.kind === "systemone" ? await systemOne(spec, v, allowed, rng) : await chat(spec, v, allowed);
+      return await systemOne(member, v, allowed, rng);
     } catch (e) {
-      console.warn(`[decide] ${spec.id} attempt ${attempt + 1}: ${(e as Error).message}`);
+      console.warn(`[vote] ${member} attempt ${attempt + 1}: ${(e as Error).message}`);
     }
   }
-  return timedOutDecision(v, spec.id);
+  return { member, choice: timedOutChoice(v), timedOut: true };
 }
 
-async function systemOne(spec: ModelSpec, v: PlayerView, allowed: Choice[], rng: () => number): Promise<Decision> {
+async function systemOne(member: string, v: PlayerView, allowed: Choice[], rng: () => number): Promise<Vote> {
   const criteria: Record<string, string> = {};
   for (const c of allowed) criteria[c] = CHOICE_CRITERIA[c];
   const res = await fetch("https://openrouter.ai/api/v1/systemone", {
     method: "POST",
     headers: headers(),
     body: JSON.stringify({
-      model: spec.openrouter,
+      model: JEV.openrouter,
       state: describeState(v),
       questions: {
         action: {
           type: "choice",
-          instructions: "You are playing poker to win chips. Which action should you take right now, given your cards, the board, the pot, the price to call and what your opponents have done?",
+          instructions: "You are playing poker to win chips, in your own style. Which action do you take right now, given your cards, the board, the pot, the price to call and what your opponent has done?",
           criteria,
         },
       },
@@ -49,39 +48,31 @@ async function systemOne(spec: ModelSpec, v: PlayerView, allowed: Choice[], rng:
   if (!res.ok) throw new Error(`${res.status} ${(await res.text()).slice(0, 160)}`);
   const data = (await res.json()) as { answers: { action: { choice: Choice; probabilities: Record<string, number> } } };
   const probs = data.answers.action.probabilities;
-  // Sample so the same spot does not always play the same way, sharpened toward the top choice.
+  return { member, choice: sample(probs, allowed, rng, data.answers.action.choice), probabilities: probs };
+}
+
+/** Sample a vote from the member's probabilities, sharpened toward its top choice. */
+function sample(probs: Record<string, number>, allowed: Choice[], rng: () => number, fallback: Choice): Choice {
   const entries = Object.entries(probs).filter(([k]) => allowed.includes(k as Choice)).map(([k, p]) => [k, Math.pow(p, 1.4)] as const);
   const total = entries.reduce((t, [, p]) => t + p, 0);
   let r = rng() * total;
-  let choice: Choice = data.answers.action.choice;
+  let choice: Choice = fallback;
   for (const [k, p] of entries) { r -= p; if (r <= 0) { choice = k as Choice; break; } }
-  if (!allowed.includes(choice)) choice = allowed.includes("check_call") ? "check_call" : allowed[0];
-  return { choice, model: spec.id, probabilities: probs };
+  return allowed.includes(choice) ? choice : allowed.includes("check_call") ? "check_call" : allowed[0];
 }
 
-async function chat(spec: ModelSpec, v: PlayerView, allowed: Choice[]): Promise<Decision> {
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: headers(),
-    body: JSON.stringify({
-      model: spec.openrouter,
-      messages: [
-        { role: "system", content: `You are a poker opponent in Bluff Run. Play to win chips. Reply with JSON only: {"action": one of ${allowed.map((c) => `"${c}"`).join(", ")}, "reason": one short sentence under 90 characters}.\nActions:\n${allowed.map((c) => `- ${c}: ${CHOICE_CRITERIA[c]}`).join("\n")}` },
-        { role: "user", content: describeState(v) },
-      ],
-      response_format: { type: "json_object" },
-      reasoning: { effort: "low" },
-      max_tokens: 400,
-      temperature: 0.8,
-    }),
-    signal: AbortSignal.timeout(15000),
-  });
-  if (!res.ok) throw new Error(`${res.status} ${(await res.text()).slice(0, 160)}`);
-  const data = (await res.json()) as { choices: { message: { content: string } }[] };
-  const text = data.choices?.[0]?.message?.content ?? "";
-  const json = text.match(/\{[\s\S]*\}/)?.[0];
-  if (!json) throw new Error(`no JSON in reply: ${text.slice(0, 80)}`);
-  const parsed = JSON.parse(json) as { action: Choice; reason?: string };
-  if (!allowed.includes(parsed.action)) throw new Error(`illegal action ${parsed.action}`);
-  return { choice: parsed.action, model: spec.id, reason: typeof parsed.reason === "string" ? parsed.reason.slice(0, 120) : undefined };
+/** Dev stand-in: weights shaped by the brief so personalities still read without a key. */
+function mockVote(member: string, v: PlayerView, allowed: Choice[], rng: () => number): Vote {
+  const b = v.brief;
+  const w: Record<Choice, number> = b.includes("wild") ? { fold: 0.5, check_call: 1, raise_small: 2, raise_big: 2.5, all_in: 1.5 }
+    : b.includes("tight and passive") ? { fold: 3, check_call: 2, raise_small: 0.4, raise_big: 0.2, all_in: 0.05 }
+    : b.includes("loose and passive") ? { fold: 0.4, check_call: 4, raise_small: 0.4, raise_big: 0.2, all_in: 0.05 }
+    : b.includes("tight and aggressive") ? { fold: 2, check_call: 0.6, raise_small: 1.4, raise_big: 1.2, all_in: 0.3 }
+    : b.includes("loose and aggressive") ? { fold: 0.8, check_call: 1, raise_small: 1.8, raise_big: 1.4, all_in: 0.5 }
+    : b.includes("balanced") ? { fold: 1.2, check_call: 1.6, raise_small: 1, raise_big: 0.6, all_in: 0.1 }
+    : { fold: 1, check_call: 1.4, raise_small: 0.9, raise_big: 0.6, all_in: 0.25 };
+  const total = allowed.reduce((t, c) => t + w[c], 0);
+  const probs: Partial<Record<Choice, number>> = {};
+  for (const c of allowed) probs[c] = w[c] / total;
+  return { member, choice: sample(probs as Record<string, number>, allowed, rng, allowed[0]), probabilities: probs };
 }

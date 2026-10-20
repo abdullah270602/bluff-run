@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Council</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap">
+<style>
+  /* Layout: one quiet column, the product's own felt and ivory; the vote strip is the one loud element. */
+  :root {
+    color-scheme: dark;
+    --bg: #08120f;
+    --panel: #0b1714;
+    --panel-2: #0e1c18;
+    --line: rgba(255, 255, 255, 0.07);
+    --text: #f4f1e8;
+    --text-2: #8c9e95;
+    --text-3: #586960;
+    --gold: #e3cf8e;
+    --raise: #2bd980;
+    --fold: #ff5468;
+    --call: #5eead4;
+    --font: "Outfit", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: radial-gradient(120% 120% at 85% 10%, #1f4a3f 0%, #163a31 35%, #0f2620 70%, #08120f 100%) fixed, var(--bg); color: var(--text); line-height: 1.5; -webkit-font-smoothing: antialiased; padding-block: 40px 96px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .wrap { max-width: 980px; margin: 0 auto; display: flex; flex-direction: column; gap: 72px; }
+  h1, h2, h3 { text-wrap: balance; letter-spacing: -0.02em; line-height: 1.1; }
+  h1 { font-size: clamp(34px, 5vw, 56px); font-weight: 600; }
+  h2 { font-size: clamp(24px, 3vw, 32px); font-weight: 600; margin-bottom: 12px; }
+  h3 { font-size: 17px; font-weight: 600; }
+  p { color: var(--text-2); max-width: 62ch; }
+  p.lead { font-size: 19px; color: var(--text); max-width: 54ch; }
+  .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; font-size: 16px; color: var(--text); }
+  .brand svg { width: 22px; height: 22px; }
+  .kicker { font-size: 13px; color: var(--text-3); margin-bottom: 10px; }
+  .num { font-variant-numeric: tabular-nums; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  .two > div { min-width: 0; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 22px; padding: 26px 28px; }
+  .panel.soft { background: rgba(11, 23, 20, 0.7); }
+  .pill { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 11px; border-radius: 999px; background: rgba(8, 13, 11, 0.7); border: 1px solid var(--line); font-size: 13px; color: var(--text-2); }
+  .pill b { color: var(--text); font-weight: 600; }
+  .pill.gold { color: var(--gold); border-color: rgba(227, 207, 142, 0.4); }
+
+  /* bots: one solid head, two eye cut-outs set upper-right, as on the table */
+  .bot { width: 64px; height: 64px; border-radius: 50%; overflow: hidden; background: #0e1714; box-shadow: 0 10px 24px rgba(0,0,0,.5), 0 0 0 2px rgba(255,255,255,.06); flex-shrink: 0; }
+  .bot svg { width: 100%; height: 100%; display: block; animation: float 4.2s ease-in-out infinite; }
+  .bot.light { background: #e9e4d6; }
+  .bot:nth-child(2n) svg { animation-delay: -1.3s; } .bot:nth-child(3n) svg { animation-delay: -2.6s; }
+  @keyframes float { 50% { transform: translateY(-1.5px); } }
+  @media (prefers-reduced-motion: reduce) { .bot svg, .bar i, .votes-strip { animation: none !important; transition: none !important; } }
+
+  /* the seat mock */
+  .seat { display: grid; grid-template-columns: 96px 1fr; gap: 22px; align-items: center; }
+  .seat .bot { width: 96px; height: 96px; }
+  .seat-name { font-size: 22px; font-weight: 500; }
+  .seat-sub { color: var(--text-3); font-size: 13.5px; margin-top: 2px; }
+  .votes { display: grid; gap: 7px; margin-top: 14px; }
+  .vote { display: grid; grid-template-columns: 92px 1fr 44px; gap: 10px; align-items: center; font-size: 13.5px; color: var(--text-2); }
+  .vote.winner { color: var(--text); }
+  .bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,.08); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; border-radius: 4px; background: var(--text-3); transition: width 0.9s cubic-bezier(.2,.8,.2,1); }
+  .vote.winner .bar i { background: var(--gold); }
+  .vote.fold .bar i { background: #8a4b55; } .vote.winner.fold .bar i { background: var(--fold); }
+  .vote.raise .bar i { background: #2a6b59; } .vote.winner.raise .bar i { background: var(--raise); }
+  .vote .n { text-align: right; }
+  .seat-action { margin-top: 14px; display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-2); }
+  .seat-action b { color: var(--text); font-weight: 600; }
+
+  /* archetype row */
+  .types { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .type { display: grid; grid-template-columns: 64px 1fr; gap: 14px; align-items: start; padding: 16px; border-radius: 18px; background: var(--panel-2); border: 1px solid var(--line); }
+  .type h3 { margin-bottom: 3px; }
+  .type p { font-size: 13.5px; }
+  .type .how { color: var(--gold); font-size: 12.5px; margin-top: 6px; }
+
+  /* list rows */
+  .rows { display: flex; flex-direction: column; }
+  .row { display: grid; grid-template-columns: 170px 1fr; gap: 18px; padding: 12px 0; border-top: 1px solid var(--line); font-size: 14.5px; }
+  .row:first-child { border-top: 0; padding-top: 0; }
+  .row b { font-weight: 500; }
+  .row span { color: var(--text-2); }
+
+  /* stage table */
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  th, td { text-align: left; padding: 10px 12px; border-top: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--text-3); font-weight: 500; font-size: 13px; border-top: 0; }
+  td:first-child { color: var(--gold); font-weight: 600; white-space: nowrap; }
+  td.new { color: var(--text); }
+  .scroll { overflow-x: auto; }
+
+  /* interactive N */
+  .sim { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
+  .slider { display: flex; align-items: center; gap: 14px; margin: 10px 0 18px; }
+  .slider input { flex: 1; accent-color: var(--gold); }
+  .slider output { font-size: 28px; font-weight: 600; min-width: 92px; }
+  .stage-track { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .stage-track button { font: inherit; color: var(--text-2); background: rgba(8,13,11,.7); border: 1px solid var(--line); border-radius: 999px; height: 30px; min-width: 42px; padding: 0 10px; cursor: pointer; }
+  .stage-track button.on { color: var(--text); border-color: var(--gold); background: rgba(227,207,142,.12); }
+  .stage-track button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .mix { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+  .mix .bot { width: 30px; height: 30px; box-shadow: none; }
+  .outcome { margin-top: 16px; font-size: 14.5px; color: var(--text-2); }
+  .outcome b { color: var(--text); }
+  .readout { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+  .readout div { padding: 12px 14px; border-radius: 14px; background: var(--panel-2); border: 1px solid var(--line); }
+  .readout span { display: block; font-size: 12.5px; color: var(--text-3); }
+  .readout strong { font-size: 22px; font-weight: 500; }
+
+  /* reveal mock */
+  .roster { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .member { display: grid; grid-template-columns: 44px 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 14px; background: var(--panel-2); border: 1px solid var(--line); }
+  .member .bot { width: 44px; height: 44px; box-shadow: none; }
+  .member b { display: block; font-weight: 500; }
+  .member small { color: var(--text-2); font-size: 12.5px; }
+  .member .stat { text-align: right; font-size: 12.5px; color: var(--text-3); }
+  .member .stat strong { display: block; color: var(--text); font-weight: 500; font-size: 15px; }
+  .foot { color: var(--text-3); font-size: 13.5px; border-top: 1px solid var(--line); padding-top: 18px; }
+
+  @media (max-width: 720px) {
+    .two, .sim, .types, .roster, .readout { grid-template-columns: 1fr; }
+    .seat { grid-template-columns: 72px 1fr; } .seat .bot { width: 72px; height: 72px; }
+    .row { grid-template-columns: 1fr; gap: 4px; }
+    .wrap { gap: 52px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <span class="brand"><svg viewBox="0 0 32 32" fill="#e3cf8e" aria-hidden="true"><rect x="0" y="28" width="4" height="4" rx="1.1"/><rect x="5" y="22.5" width="6" height="6" rx="1.6"/><rect x="12" y="15" width="9" height="9" rx="2.3"/><rect x="19" y="4" width="13" height="13" rx="3.2"/></svg>Bluff Run</span>
+    <div style="margin-top:28px">
+      <div class="kicker">A proposal for how 1 v 100 should work</div>
+      <h1>One seat. A council of Jevs.</h1>
+      <p class="lead" style="margin-top:14px">Every stage is heads-up. The seat across from you is N Jevs, each with its own temperament, each asked the same question. The seat does what the vote says. At stage 1 it is one Jev. At stage 8 it is a hundred.</p>
+    </div>
+  </header>
+
+  <section class="two">
+    <div class="panel soft">
+      <div class="kicker">How it works today</div>
+      <h3>A tournament you mostly can't see</h3>
+      <p style="margin-top:8px;font-size:14.5px">At stage 100 you sit with eight. The other 92 play each other on the server. You beat your table, then the survivors come back, then it's a final. Correct poker structure, but "beating 100" is really beating eight three times, and most of the field is invisible.</p>
+    </div>
+    <div class="panel">
+      <div class="kicker">The council</div>
+      <h3>You against all of them, every hand</h3>
+      <p style="margin-top:8px;font-size:14.5px">Each council member votes fold, call or raise from the same table state. The seat takes the majority and sizes raises as the average of the raisers. You see the vote fill in before the seat moves. It is literally you versus N, and the vote becomes the signature visual of the game.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker">The moment, on the table</div>
+    <h2>The council deliberates in front of you</h2>
+    <p>This is the opponent seat during a decision at stage 6. The strip fills as votes arrive, about two seconds for a full council, then the seat acts on the plurality. Press the button to see another deliberation.</p>
+    <div class="panel" style="margin-top:22px">
+      <div class="seat">
+        <div class="bot" id="seatBot"></div>
+        <div>
+          <div class="seat-name">Jev <span class="num" style="color:var(--text-3);font-weight:400">×32</span></div>
+          <div class="seat-sub">Deliberating on the river, facing your bet of 180 into 260</div>
+          <div class="votes" id="votes"></div>
+          <div class="seat-action" id="seatAction"></div>
+        </div>
+      </div>
+      <div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <button class="stage-track" id="again" style="display:inline-flex"><span style="font:inherit;color:var(--text);background:rgba(227,207,142,.14);border:1px solid var(--gold);border-radius:999px;height:34px;padding:0 16px;display:inline-flex;align-items:center;cursor:pointer">Deliberate again</span></button>
+        <span style="font-size:13px;color:var(--text-3)">Votes are a fixed example here. In the game each one is a real Jev call.</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker">Where the differences come from</div>
+    <h2>Three layers, seeded per member</h2>
+    <p>Jev is a decision model: the same table in, the same probabilities out. A hundred identical calls would be one call. So each member gets a brief, and the shape of its bot tells you what kind it is.</p>
+
+    <h3 style="margin-top:28px;margin-bottom:12px">Archetype <span style="color:var(--text-3);font-weight:400">(real poker types, each with a known exploit)</span></h3>
+    <div class="types" id="types"></div>
+
+    <div class="two" style="margin-top:28px">
+      <div>
+        <h3 style="margin-bottom:10px">Quirk <span style="color:var(--text-3);font-weight:400">(one situational habit)</span></h3>
+        <div class="rows">
+          <div class="row"><b>River shutdown</b><span>Fires flop and turn, gives up on the river when called twice.</span></div>
+          <div class="row"><b>Blind stealer</b><span>Raises from the button with almost anything.</span></div>
+          <div class="row"><b>Trapper</b><span>Checks its monsters and lets you bet into them.</span></div>
+          <div class="row"><b>Scared money</b><span>Folds to big bets regardless of odds.</span></div>
+          <div class="row"><b>Never folds an ace</b><span>Exactly that.</span></div>
+          <div class="row"><b>Tilt</b><span>After losing a big pot, plays loose for three hands.</span></div>
+        </div>
+      </div>
+      <div>
+        <h3 style="margin-bottom:10px">Tell <span style="color:var(--text-3);font-weight:400">(something you can actually read)</span></h3>
+        <div class="rows">
+          <div class="row"><b>Timing</b><span>Takes longer to vote when it's strong. A long deliberation means something.</span></div>
+          <div class="row"><b>Wide eyes</b><span>The bot's eyes widen a beat before a raise.</span></div>
+          <div class="row"><b>The blink</b><span>Blinks before it folds.</span></div>
+          <div class="row"><b>None</b><span>Most members have no tell. Which ones do is hidden until the run ends.</span></div>
+        </div>
+        <p style="font-size:13.5px;margin-top:14px">Tells are the part that teaches poker. Readers who notice can exploit them; the reveal confirms what they saw.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker">Flavours arrive by stage</div>
+    <h2>The first is always simple</h2>
+    <div class="scroll" style="margin-top:14px">
+    <table>
+      <thead><tr><th>Stage</th><th>Council</th><th>What's new</th></tr></thead>
+      <tbody>
+        <tr><td>1 · ×1</td><td>Plain Jev</td><td class="new">Just the model, no brief. Sampled vote, so it is erratic and bluffable.</td></tr>
+        <tr><td>2 · ×2</td><td>Plain + Rock or Station</td><td class="new">Passive types. The first time the vote can split.</td></tr>
+        <tr><td>3 · ×4</td><td>+ Grinder</td><td class="new">Solid, aggressive play enters the room.</td></tr>
+        <tr><td>4 · ×8</td><td>+ Hustler</td><td class="new">Pressure. First quirks appear.</td></tr>
+        <tr><td>5 · ×16</td><td>+ Maniac</td><td class="new">Chaos, and the first tells to read.</td></tr>
+        <tr><td>6 · ×32</td><td>+ Clock</td><td class="new">Balance. Tilt quirk appears.</td></tr>
+        <tr><td>7 · ×64</td><td>Everything, weighted solid</td><td class="new">Majority rules; wild votes get cancelled out.</td></tr>
+        <tr><td>8 · ×100</td><td>Everything, a hundred of them</td><td class="new">The full spectrum. It does not tilt and it does not get caught.</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker">Why difficulty rises for a real reason</div>
+    <h2>A bigger council is a steadier opponent</h2>
+    <div class="sim">
+      <div class="panel">
+        <div class="stage-track" id="stages"></div>
+        <div class="slider"><input id="n" type="range" min="1" max="100" value="1" aria-label="Council size"><output id="nOut" class="num">×1</output></div>
+        <div class="mix" id="mix" aria-label="Council composition"></div>
+        <div class="outcome" id="outcome"></div>
+      </div>
+      <div>
+        <p>Same spot every time: you bet the river with air. A single Jev samples its answer, so some runs it folds and some runs it calls. A council acts on the majority, so the noise cancels and it settles on the better line. Move the slider and watch the fold rate steady.</p>
+        <div class="readout">
+          <div><span>Times it folds, out of 100 replays</span><strong class="num" id="foldRate">–</strong></div>
+          <div><span>Swing between replays</span><strong class="num" id="swing">–</strong></div>
+        </div>
+        <p style="font-size:13.5px;margin-top:14px">Illustrative numbers from a fixed probability mix, not live Jev calls. The shape of the curve is the point.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker">After the run</div>
+    <h2>The council you faced</h2>
+    <p>When a run ends, every member you played is revealed: name, archetype, quirk, tell, how often it voted against the majority, and its best read, the hand where its minority vote would have been right. In the hand review each decision shows the split, and hovering a bar names who voted for it.</p>
+    <div class="panel" style="margin-top:22px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+        <h3>Stage 4, Jev ×8</h3>
+        <span class="pill gold">Council <b class="num">A7F3</b></span>
+      </div>
+      <div class="roster" id="roster"></div>
+    </div>
+  </section>
+
+  <section class="two">
+    <div class="panel soft">
+      <h3>Seeded councils you can share</h3>
+      <p style="margin-top:8px;font-size:14.5px">The run seed is on the result and in the share link, so a friend sits down against exactly the same hundred. "Beat my run" becomes "beat my council".</p>
+    </div>
+    <div class="panel soft">
+      <h3>Table talk without a text model</h3>
+      <p style="margin-top:8px;font-size:14.5px">Jev can't write, but it can choose. After a big pot, one extra question (needle, respect, quiet) maps to a few short lines per archetype. Cheap, and the council gets a voice.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker">Cost and speed</div>
+    <div class="rows" style="max-width:62ch">
+      <div class="row"><b>Per decision</b><span>100 votes is about a fifth of a cent through OpenRouter.</span></div>
+      <div class="row"><b>Per decision, wall clock</b><span>Around two seconds with twenty calls in flight, which reads as deliberation.</span></div>
+      <div class="row"><b>What goes away</b><span>Background tables, the round screens, the bracket, and the waiting state.</span></div>
+      <div class="row"><b>What stays</b><span>The engine, the table, the characters, the review, the share page.</span></div>
+    </div>
+  </section>
+
+  <p class="foot">One mechanic, explained in one sentence: beat one Jev, and next time there are two of them in the chair.</p>
+</div>
+
+<script>
+  // head shapes, same as the table's bots
+  const SHAPES = {
+    blob: "M60 20 C84 18 100 36 100 60 C100 86 82 102 58 102 C34 102 20 84 20 60 C20 36 38 22 60 20 Z",
+    squircle: "M60 20 C92 20 100 28 100 60 C100 92 92 100 60 100 C28 100 20 92 20 60 C20 28 28 20 60 20 Z",
+    cloud: "M44 40 C46 26 70 24 76 38 C92 34 104 48 98 62 C106 76 92 90 78 86 C70 100 44 100 38 86 C22 90 12 72 24 60 C14 48 28 34 44 40 Z",
+    hex: "M60 18 C64 18 68 20 72 22 L92 34 C96 36 98 40 98 44 L98 76 C98 80 96 84 92 86 L72 98 C68 100 64 102 60 102 C56 102 52 100 48 98 L28 86 C24 84 22 80 22 76 L22 44 C22 40 24 36 28 34 L48 22 C52 20 56 18 60 18 Z",
+    bean: "M54 22 C78 18 100 34 102 58 C104 82 90 100 66 102 C44 104 24 92 20 70 C16 48 30 26 54 22 Z",
+    gem: "M40 24 L80 24 C86 24 90 26 94 32 L104 50 C106 54 106 58 102 62 L66 100 C62 104 58 104 54 100 L18 62 C14 58 14 54 16 50 L26 32 C30 26 34 24 40 24 Z",
+    egg: "M60 18 C80 18 98 40 98 64 C98 86 82 102 60 102 C38 102 22 86 22 64 C22 40 40 18 60 18 Z",
+  };
+  const FACE = { blob: [66, 52], squircle: [66, 52], cloud: [66, 56], hex: [66, 52], bean: [68, 50], gem: [66, 50], egg: [65, 52] };
+  function botSVG(shape, light, eyes) {
+    const bg = light ? "#e9e4d6" : "#0e1714", fill = light ? "#141c19" : "#ebe6d8";
+    const [fx, fy] = FACE[shape]; const g = 22, r = 7.5; const ry = eyes === "wide" ? r * 1.4 : eyes === "squint" ? r * 0.5 : r * 1.18;
+    return `<svg viewBox="0 0 120 120" aria-hidden="true"><rect width="120" height="120" fill="${bg}"/><path d="${SHAPES[shape]}" fill="${fill}"/><ellipse cx="${fx - g / 2}" cy="${fy}" rx="${r}" ry="${ry}" fill="${bg}"/><ellipse cx="${fx + g / 2}" cy="${fy}" rx="${r}" ry="${ry}" fill="${bg}"/></svg>`;
+  }
+
+  const TYPES = [
+    ["Plain Jev", "blob", "The model with no brief. Erratic because it samples.", "Beat it by being patient; it will hand you chips."],
+    ["Rock", "squircle", "Tight and passive. Folds most hands, calls only with strength.", "Steal its blinds. Fold when it finally raises."],
+    ["Station", "cloud", "Loose and passive. Calls everything, rarely raises.", "Stop bluffing. Bet thin for value, size up."],
+    ["Grinder", "hex", "Tight and aggressive. Few hands, played hard.", "Stay balanced. Bluffing it is risky."],
+    ["Hustler", "bean", "Loose and aggressive. Wide opens, lots of pressure.", "Call wider, three-bet for value, find the street it gives up."],
+    ["Maniac", "gem", "A Hustler with the discipline removed.", "Tighten before the flop, widen after, let it hang itself."],
+    ["Clock", "egg", "Balanced and patient. The hardest to read.", "There is no cheap exploit. Play well."],
+  ];
+  document.getElementById("types").innerHTML = TYPES.map(([n, s, d, how]) => `<div class="type"><div class="bot">${botSVG(s)}</div><div><h3>${n}</h3><p>${d}</p><div class="how">${how}</div></div></div>`).join("");
+
+  // the deliberation mock
+  const seatBot = document.getElementById("seatBot"), votesEl = document.getElementById("votes"), actionEl = document.getElementById("seatAction");
+  const EXAMPLES = [
+    { fold: 9, call: 19, raise: 4, who: "squircle" },
+    { fold: 4, call: 21, raise: 7, who: "hex" },
+    { fold: 17, call: 10, raise: 5, who: "cloud" },
+  ];
+  let ex = 0;
+  function deliberate() {
+    const v = EXAMPLES[ex % EXAMPLES.length]; ex++;
+    const total = v.fold + v.call + v.raise;
+    const winner = Object.entries({ fold: v.fold, call: v.call, raise: v.raise }).sort((a, b) => b[1] - a[1])[0][0];
+    seatBot.innerHTML = botSVG("blob", false, "squint");
+    actionEl.innerHTML = "";
+    votesEl.innerHTML = ["fold", "call", "raise"].map((k) => `<div class="vote ${k} ${k === winner ? "winner" : ""}"><span>${k === "call" ? "Call 180" : k === "raise" ? "Raise to 540" : "Fold"}</span><div class="bar"><i data-w="${(v[k] / total) * 100}"></i></div><span class="n num">0</span></div>`).join("");
+    const bars = [...votesEl.querySelectorAll(".bar i")], nums = [...votesEl.querySelectorAll(".n")];
+    const keys = ["fold", "call", "raise"];
+    let t = 0;
+    const tick = setInterval(() => {
+      t += 1;
+      bars.forEach((b, i) => { const target = +b.dataset.w; b.style.width = Math.min(target, target * (t / 18)) + "%"; });
+      nums.forEach((n, i) => { n.textContent = Math.round(v[keys[i]] * Math.min(1, t / 18)); });
+      if (t >= 18) {
+        clearInterval(tick);
+        seatBot.innerHTML = botSVG(v.who, false, winner === "raise" ? "wide" : "normal");
+        actionEl.innerHTML = `The seat <b>${winner === "call" ? "calls 180" : winner === "raise" ? "raises to 540" : "folds"}</b>, on ${v[winner]} of ${total} votes. The <b>${TYPES.find((x) => x[1] === v.who)[0]}</b> carried it.`;
+      }
+    }, 90);
+  }
+  deliberate();
+  document.getElementById("again").addEventListener("click", deliberate);
+
+  // council size simulation
+  const STAGES = [1, 2, 4, 8, 16, 32, 64, 100];
+  const MIX = [["blob", 1], ["squircle", 0.2], ["cloud", 0.15], ["hex", 0.2], ["bean", 0.15], ["gem", 0.1], ["egg", 0.2]];
+  // probability each archetype folds in the example spot (you bet the river with nothing)
+  const P_FOLD = { blob: 0.55, squircle: 0.7, cloud: 0.25, hex: 0.62, bean: 0.45, gem: 0.3, egg: 0.6 };
+  const nIn = document.getElementById("n"), nOut = document.getElementById("nOut"), mixEl = document.getElementById("mix"), stagesEl = document.getElementById("stages"), outcome = document.getElementById("outcome"), foldRate = document.getElementById("foldRate"), swing = document.getElementById("swing");
+  stagesEl.innerHTML = STAGES.map((s) => `<button type="button" data-n="${s}">×${s}</button>`).join("");
+  stagesEl.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { nIn.value = b.dataset.n; update(); } });
+  function seeded(seed) { let s = seed >>> 0 || 1; return () => { s ^= s << 13; s >>>= 0; s ^= s >> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; }; }
+  function council(n) {
+    const stageIdx = STAGES.findIndex((s) => n <= s); const allowed = MIX.slice(0, Math.max(1, Math.min(MIX.length, stageIdx + 1)));
+    const rng = seeded(n * 7919);
+    return Array.from({ length: n }, (_, i) => i === 0 ? "blob" : allowed[Math.floor(rng() * allowed.length)][0]);
+  }
+  function update() {
+    const n = +nIn.value; nOut.textContent = "×" + n;
+    [...stagesEl.children].forEach((b) => b.classList.toggle("on", +b.dataset.n === n));
+    const members = council(n);
+    mixEl.innerHTML = members.slice(0, 48).map((s) => `<div class="bot">${botSVG(s)}</div>`).join("") + (n > 48 ? `<span class="pill num">+${n - 48}</span>` : "");
+    // replay the spot 100 times: each member samples its vote, seat takes the majority
+    const rng = seeded(1234 + n);
+    let folds = 0; const results = [];
+    for (let r = 0; r < 100; r++) {
+      let f = 0; for (const m of members) if (rng() < P_FOLD[m]) f++;
+      const folded = f > members.length / 2 || (f === members.length / 2 && rng() < 0.5);
+      if (folded) folds++; results.push(folded ? 1 : 0);
+    }
+    // swing: fold rate in the first 20 replays vs the last 20
+    const a = results.slice(0, 20).reduce((x, y) => x + y, 0), b = results.slice(80).reduce((x, y) => x + y, 0);
+    foldRate.textContent = folds + "%"; swing.textContent = Math.abs(a - b) * 5 + " pts";
+    outcome.innerHTML = n === 1
+      ? "One Jev. It folds a little over half the time, so your bluff is a coin flip."
+      : n < 8 ? "A few voices. Still noisy; a single Maniac can swing it."
+      : n < 32 ? "The majority starts to hold. Your bluff works only when it should."
+      : "A hundred-ish voices. The seat lands on the same line nearly every time. Bluff it less, value bet it more.";
+  }
+  nIn.addEventListener("input", update); update();
+
+  // reveal roster
+  const ROSTER = [
+    ["Jev", "blob", "Plain", "no quirk", "no tell", "Voted with majority", "100%"],
+    ["Granite", "squircle", "Rock", "scared money", "blink before fold", "Against majority", "12%"],
+    ["Velvet", "cloud", "Station", "never folds an ace", "no tell", "Best read", "hand 7"],
+    ["Ledger", "hex", "Grinder", "river shutdown", "timing", "Against majority", "31%"],
+    ["Sprinter", "bean", "Hustler", "blind stealer", "wide eyes", "Best read", "hand 12"],
+    ["Fuse", "gem", "Maniac", "tilt", "no tell", "Against majority", "48%"],
+    ["Meridian", "egg", "Clock", "trapper", "timing", "Against majority", "9%"],
+    ["Cinder", "bean", "Hustler", "three-bet happy", "no tell", "Best read", "hand 3"],
+  ];
+  document.getElementById("roster").innerHTML = ROSTER.map(([n, s, t, q, tell, lab, val]) => `<div class="member"><div class="bot">${botSVG(s)}</div><div><b>${n} <span style="color:var(--text-3);font-weight:400">${t}</span></b><small>${q}, ${tell}</small></div><div class="stat">${lab}<strong class="num">${val}</strong></div></div>`).join("");
+</script>
+</body>
+</html>

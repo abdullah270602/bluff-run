@@ -72,40 +72,30 @@ h = dealHand([{ id: "a", stack: 10 }, { id: "b", stack: 1990 }], 0, 10, 20, 4, s
 assert.equal(h.street, "done", "blind all-in runs out board automatically");
 assert.equal(h.seats[0].stack + h.seats[1].stack, 2000, "chips conserved on blind all-in");
 
-import { rosterForStage, roundsForStage, simulateTable, splitRound, STAGES } from "@/game/run";
+import { buildCouncil, tally, type Vote } from "@/game/council";
 import { decodeRun, encodeRun } from "@/game/share";
 
-assert.deepEqual(STAGES.map(roundsForStage), [1, 1, 1, 1, 2, 2, 2, 3], "tournament rounds per stage");
-const r16 = rosterForStage(4, ["jev", "haiku"], seeded(6));
-assert.equal(r16.length, 16);
-const { mine, others } = splitRound(r16);
-assert.equal(mine.length, 8);
-assert.equal(others.length, 1);
-assert.equal(others[0].length, 8);
-assert.ok(r16.slice(8).every((o) => o.model === "jev"), "background field is Jev");
-const rngT = seeded(7);
-const stub = async (): Promise<"raise_small" | "check_call" | "fold"> => (rngT() < 0.3 ? "raise_small" : rngT() < 0.7 ? "check_call" : "fold");
-simulateTable(others[0], stub, undefined, seeded(8)).then((tableWinner) => {
-  assert.ok(others[0].some((o) => o.id === tableWinner.id), "background table produces valid winner");
-  console.log("background table ok");
-});
+// council: deterministic per seed and stage, plain Jev first, pools unlock by stage
+const c1 = buildCouncil(4, "A7F3", 16), c2 = buildCouncil(4, "A7F3", 16);
+assert.deepEqual(c1.map((m) => m.archetype + m.quirk + m.tell), c2.map((m) => m.archetype + m.quirk + m.tell), "council is seeded");
+assert.equal(c1[0].archetype, "plain");
+assert.ok(buildCouncil(0, "A7F3", 1).every((m) => m.archetype === "plain" && m.quirk === "none"), "stage 1 is plain");
+assert.ok(buildCouncil(1, "A7F3", 2).every((m) => ["plain", "rock", "station"].includes(m.archetype)), "stage 2 pool");
 
-const sampleRun = {
-  stageIdx: 4,
-  cleared: 4,
-  beaten: 21,
-  hands: 48,
-  biggestPot: 3600,
-  bestHand: "Full house, Kings full of Tens",
-  bestHandScore: 12345,
-  won: false,
-  date: "2026-10-19",
-};
+// tally: plurality by group, then the most voted raise size; a tie goes to the heavier probability mass
+const v = (member: string, choice: Vote["choice"], p?: Vote["probabilities"]): Vote => ({ member, choice, probabilities: p });
+const allowed: Vote["choice"][] = ["fold", "check_call", "raise_small", "raise_big", "all_in"];
+let r = tally([v("a", "fold"), v("b", "fold"), v("c", "raise_big"), v("d", "raise_small"), v("e", "raise_small")], allowed);
+assert.equal(r.choice, "raise_small"); assert.deepEqual(r.counts, { fold: 2, call: 0, raise: 3 }); assert.deepEqual(r.carriedBy, ["c", "d", "e"]);
+r = tally([v("a", "fold", { fold: 0.9, check_call: 0.1 }), v("b", "check_call", { fold: 0.4, check_call: 0.6 })], allowed);
+assert.equal(r.choice, "fold", "tie broken by probability mass");
+r = tally([v("a", "raise_big")], ["check_call"]);
+assert.equal(r.choice, "check_call", "illegal group falls back to a legal choice");
+
+const sampleRun = { seed: "A7F3", daily: 3, stageIdx: 4, cleared: 4, beaten: 15, hands: 48, biggestPot: 900, bestHand: "Full house, Kings full of Tens", bestHandScore: 0, won: false, date: "2026-10-20", bust: { fold: 3, call: 9, raise: 4, choice: "check_call" } };
 const decoded = decodeRun(encodeRun(sampleRun));
 assert.ok(decoded, "share code decodes");
-assert.equal(decoded!.stageIdx, 4);
-assert.equal(decoded!.beaten, 21);
-assert.equal(decoded!.bestHand, "Full house, Kings full of Tens");
+assert.equal(decoded!.seed, "A7F3"); assert.equal(decoded!.bust!.call, 9); assert.equal(decoded!.bestHand, "Full house, Kings full of Tens");
 
 console.log("engine + game tests ok");
 
