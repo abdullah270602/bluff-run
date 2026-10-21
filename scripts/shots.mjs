@@ -21,5 +21,7 @@ await shot("landing-mobile", { width: 390, height: 844, url: "/" });
 await shot("play-desktop", { width: 1440, height: 900, url: "/play", before: (p) => p.waitForTimeout(2500) });
 await shot("play-laptop", { width: 1280, height: 720, url: "/play", before: (p) => p.waitForTimeout(2500) });
 await shot("play-mobile", { width: 390, height: 844, url: "/play", before: (p) => p.waitForTimeout(2500) });
-await shot("share-desktop", { width: 1440, height: 900, url: "/r/WzQsNCwyMSw0OCwzNjAwLCJGdWxsIGhvdXNlLCBLaW5ncyBmdWxsIG9mIFRlbnMiLDAsIjIwMjYtMTAtMTkiXQ" });
+await shot("share-desktop", { width: 1440, height: 900, url: "/r/WzIsIjIwMjYxMDIxIiwyLDMsMyw3LDMxLDQ4MCwiVGhyZWUgQWNlcyIsMCwiMjAyNi0xMC0yMSIsWzEsMiw1LCJyYWlzZV9iaWciXV0" });
+await shot("share-won", { width: 1440, height: 900, url: "/r/WzIsIkE3RjMiLDAsNyw4LDIyNywxNDAsNjAwLCJGdWxsIEhvdXNlLCBLaW5ncyBmdWxsIG9mIFRlbnMiLDEsIjIwMjYtMTAtMjEiLG51bGxd" });
+await shot("share-mobile", { width: 390, height: 844, url: "/r/WzIsIjIwMjYxMDIxIiwyLDMsMyw3LDMxLDQ4MCwiVGhyZWUgQWNlcyIsMCwiMjAyNi0xMC0yMSIsWzEsMiw1LCJyYWlzZV9iaWciXV0" });
 await browser.close();
