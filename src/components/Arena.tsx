@@ -9,6 +9,7 @@ import { ARCHETYPES, buildCouncil, groupOf, hashSeed, newSeed, rngFrom, tally, t
 import { blindsFor, buildView, PLAYER_ID, resolveChoice, SEAT_ID, START_STACK, STAGES } from "@/game/run";
 import { memberStats, recordHand, type HandRecord } from "@/game/review";
 import { dailyNumber, emptyStats, todaySeed, type RunStats } from "@/game/share";
+import { isEnabled, play, setEnabled } from "@/game/sound";
 import type { Mood } from "./Bot";
 import { Mark } from "./Logo";
 import { Results } from "./Results";
@@ -67,6 +68,7 @@ export function Arena() {
   const [flights, setFlights] = useState<Flight[]>([]);
   const [pendingWin, setPendingWin] = useState<Record<string, number>>({});
   const [intro, setIntro] = useState(false);
+  const [sound, setSound] = useState(false);
   const [youVariant] = useState(() => [0, 4, 3, 1][Math.floor(Math.random() * 4)]);
   const decisions = useRef<Record<number, Decision>>({});
   const startStacks = useRef(new Map<string, number>());
@@ -81,6 +83,7 @@ export function Arena() {
 
   const fly = useCallback((items: Omit<Flight, "id">[], ttl = 1300) => {
     if (!items.length) return;
+    play("chip");
     const batch = items.map((f) => ({ ...f, id: ++flightSeq.current }));
     setFlights((prev) => [...prev, ...batch]);
     setTimeout(() => setFlights((prev) => prev.filter((f) => !batch.some((b) => b.id === f.id))), ttl);
@@ -95,6 +98,7 @@ export function Arena() {
     // the deck is seeded too, so a daily council deals everyone the same hands
     const h = dealHand(seats, d, sb, bb, n, rngFrom(hashSeed(`${seed}:${stage}:${n}`)));
     setHand({ ...h });
+    play("deal");
     setStatuses({});
     setDelib(null);
     setRaiseOpen(false);
@@ -187,6 +191,7 @@ export function Arena() {
               if (!line) continue;
               const v = JSON.parse(line) as Vote;
               votes.push(v); counts[groupOf(v.choice)]++;
+              if (!cancelled) play("vote");
               if (!cancelled) setDelib({ counts: { ...counts }, total, done: false, allowed: allowedFlags });
             }
           }
@@ -232,6 +237,7 @@ export function Arena() {
     const busted = !youSeat || youSeat.stack === 0;
     const cleared = !busted && Boolean(jev) && jev!.stack === 0;
     const won = ws.find((w) => w.seat === PLAYER_ID);
+    if (won) play("win");
     const ev = youSeat && !youSeat.folded && hand.board.length >= 3 ? evaluate(youSeat.hole.concat(hand.board)) : null;
     // tilt: the seat lost a big pot
     if (jev && (startStacks.current.get(SEAT_ID) ?? 0) - jev.stack >= 0.4 * (startStacks.current.get(SEAT_ID) ?? 1)) tiltUntil.current = hand.handNo + 3;
@@ -269,6 +275,9 @@ export function Arena() {
     setStats(emptyStats(seed, daily)); setRunLog([]); startStage(0);
   };
 
+  useEffect(() => { setSound(isEnabled()); }, []);
+  const toggleSound = useCallback(() => setSound((s) => { setEnabled(!s); return !s; }), []);
+
   // keyboard
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -277,6 +286,7 @@ export function Arena() {
       if (k === "escape") { setRaiseOpen(false); setDrawer(null); return; }
       if (k === "h") { setDrawer((d) => (d === "help" ? null : "help")); return; }
       if (k === "l") { setDrawer((d) => (d === "log" ? null : "log")); return; }
+      if (k === "m") { toggleSound(); return; }
       if (e.code === "Space" || k === "n" || k === "enter") { if (phase === "handDone" || phase === "stageCleared") { e.preventDefault(); advance(); } return; }
       if (!hand || phase !== "hand" || hand.street === "done" || hand.seats[hand.toAct]?.id !== PLAYER_ID) return;
       const L = legal(hand);
@@ -286,7 +296,7 @@ export function Arena() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [hand, phase, raiseOpen, raiseTo, you, advance]);
+  }, [hand, phase, raiseOpen, raiseTo, you, advance, toggleSound]);
 
   useEffect(() => {
     if (hand && phase === "hand" && hand.toAct >= 0 && hand.seats[hand.toAct].id === PLAYER_ID) {
@@ -401,6 +411,7 @@ export function Arena() {
           <div className="shortcuts">
             <div><span>Fold or check</span><kbd>F</kbd></div><div><span>Check or call</span><kbd>C</kbd></div>
             <div><span>Raise</span><kbd>R</kbd></div><div><span>Next</span><kbd>Space</kbd></div>
+            <div><span>Sound</span><span><button type="button" className={`pill ${sound ? "active" : ""}`} style={{ height: 22, padding: "0 10px", fontSize: 12 }} onClick={toggleSound} aria-pressed={sound}>{sound ? "On" : "Off"}</button> <kbd>M</kbd></span></div>
           </div>
         </aside>
       )}
