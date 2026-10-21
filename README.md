@@ -24,6 +24,10 @@ npm run dev
 
 Checks: `npm test` (engine, council determinism, share codec), then against `BLUFF_MOCK=1 npx next start -p 3100`: `node scripts/e2e.mjs` (scripted play-through), `node scripts/shots.mjs` (screenshots), `node scripts/council-shots.mjs` (vote strip and the reveal). `BLUFF_MOCK=1` votes by persona without network calls; with it, `?stage=N` jumps to a stage.
 
+## Deploy
+
+Vercel, no config. Import the repo, set `OPENROUTER_API_KEY` and `NEXT_PUBLIC_SITE_URL` (the public URL, used for share links and the Open Graph card), deploy. The council route allows 60 seconds and only answers same-origin requests from the table, so a script cannot spend the key through it.
+
 ## Layout
 
 - `src/engine/` hand evaluator, betting, side pots.

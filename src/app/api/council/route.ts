@@ -3,6 +3,17 @@ import type { PlayerView } from "@/brains/types";
 import { memberBrief, type Member } from "@/game/council";
 
 export const runtime = "nodejs";
+/** Room for a slow upstream at x100: a stalled vote becomes a timed-out vote, not a killed function. */
+export const maxDuration = 60;
+
+const MAX_MEMBERS = 100;
+
+/** Only the table itself may ask the council to vote; a script hitting the route would spend the key. */
+function sameOrigin(req: Request) {
+  const site = req.headers.get("sec-fetch-site");
+  if (site) return site === "same-origin";
+  return process.env.NODE_ENV !== "production"; // dev tools and local scripts send no fetch metadata
+}
 
 const CONCURRENCY = 24; // all votes in flight together, up to this many at once
 
@@ -17,8 +28,9 @@ export async function GET() {
  * timed-out vote.
  */
 export async function POST(req: Request) {
+  if (!sameOrigin(req)) return Response.json({ error: "forbidden" }, { status: 403 });
   const { members, view, tilted } = (await req.json()) as { members: Member[]; view: PlayerView; tilted?: boolean };
-  if (!Array.isArray(members) || !members.length || !view?.hero?.hole) return Response.json({ error: "bad request" }, { status: 400 });
+  if (!Array.isArray(members) || !members.length || members.length > MAX_MEMBERS || !view?.hero?.hole) return Response.json({ error: "bad request" }, { status: 400 });
   if (!configured()) return Response.json({ error: "OPENROUTER_API_KEY is not set" }, { status: 503 });
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
