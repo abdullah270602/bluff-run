@@ -148,6 +148,9 @@ export function Arena() {
   const you = useCallback((a: Action) => {
     if (!hand || phase !== "hand" || hand.street === "done" || hand.seats[hand.toAct]?.id !== PLAYER_ID) return;
     setRaiseOpen(false);
+    // the finished vote stays on the table until you act, then fades
+    setDelib((d) => (d?.done ? { ...d, leaving: true } : d));
+    setTimeout(() => setDelib((d) => (d?.leaving ? null : d)), 420);
     applyAction(hand, a);
   }, [hand, phase, applyAction]);
 
@@ -209,7 +212,6 @@ export function Arena() {
       lock.current = false;
       setThinking(false);
       applyAction(hand, resolveChoice(hand, hand.toAct, t.choice), decision);
-      setTimeout(() => setDelib((d) => (d?.done ? null : d)), 1800);
     })();
     return () => { cancelled = true; lock.current = false; };
   }, [hand, phase, council, names, stageN, handNo, applyAction]);

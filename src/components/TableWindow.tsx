@@ -14,7 +14,7 @@ export interface SeatVM {
 }
 export interface HeroVM { hole: Card[]; folded: boolean; outcome: string | null; winner: boolean }
 export interface Flight { id: number; from: string; to: string; amount: number }
-export interface Deliberation { counts: { fold: number; call: number; raise: number }; total: number; done: boolean; carried?: string; allowed: { fold: boolean; raise: boolean } }
+export interface Deliberation { counts: { fold: number; call: number; raise: number }; total: number; done: boolean; leaving?: boolean; carried?: string; allowed: { fold: boolean; raise: boolean } }
 export interface WindowProps {
   stage: { n: number; hand: number; cleared: number };
   counter: { n: number; name: string };
@@ -149,7 +149,7 @@ export function TableWindow(p: WindowProps) {
         </div>
 
         {d && (
-          <div className={`deliberation ${d.done ? "done" : ""}`} aria-live="polite" aria-label="Council vote">
+          <div className={`deliberation ${d.done ? "done" : ""} ${d.leaving ? "leaving" : ""}`} aria-live="polite" aria-label="Council vote">
             <div className="delib-head num">{d.done ? `${d.total} votes in` : `${d.counts.fold + d.counts.call + d.counts.raise} of ${d.total} votes`}{d.carried ? <span>{d.carried}</span> : null}</div>
             {([["fold", "Fold", d.allowed.fold], ["call", d.allowed.fold ? "Call" : "Check", true], ["raise", "Raise", d.allowed.raise]] as const).filter(([, , ok]) => ok).map(([k, label]) => {
               const n = d.counts[k];
