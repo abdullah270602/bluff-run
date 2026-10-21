@@ -8,6 +8,7 @@ import type { MemberStat } from "@/game/review";
 import { STAGES } from "@/game/run";
 import { encodeRun, shareText, type RunStats } from "@/game/share";
 import { Bot } from "./Bot";
+import { StarButton } from "./StarButton";
 
 /** The run summary that fills the table window when a run ends, and the share page. */
 export function Results({ stats, right, council, onPlayAgain, onSameCouncil, shareView = false }: { stats: RunStats; right?: ReactNode; council?: MemberStat[]; onPlayAgain?: () => void; onSameCouncil?: () => void; shareView?: boolean }) {
@@ -49,6 +50,7 @@ export function Results({ stats, right, council, onPlayAgain, onSameCouncil, sha
           {onPlayAgain ? <button type="button" className={`pill ${onSameCouncil ? "" : "pill-lime"}`} onClick={onPlayAgain}>New council</button> : <Link href={`/play?council=${stats.seed}`} className="pill pill-lime">{shareView ? "Beat this council" : "Play again"}</Link>}
           <button type="button" className="pill" onClick={() => copy("text")}>{copied === "text" ? "Copied" : "Copy summary"}</button>
           <button type="button" className="pill" onClick={() => copy("link")}>{copied === "link" ? "Copied" : "Copy link"}</button>
+          <StarButton />
         </div>
       </div>
       <div className="results-right">

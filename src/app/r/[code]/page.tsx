@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Bot } from "@/components/Bot";
 import { Mark } from "@/components/Logo";
+import { SiteFoot } from "@/components/SiteFoot";
 import { ARCHETYPES, buildCouncil } from "@/game/council";
 import { STAGES } from "@/game/run";
 import { decodeRun, emptyStats, ladderGlyphs } from "@/game/share";
@@ -105,10 +106,7 @@ export default async function SharePage({ params }: Props) {
         </dl>
       )}
 
-      <footer className="site-foot">
-        <span className="brand" style={{ fontSize: 14 }}><Mark size={18} color="var(--accent)" />Bluff Run</span>
-        <span>Heads-up poker against a council of AI players. <Link href="/">How it works</Link>.</span>
-      </footer>
+      <SiteFoot />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Bot } from "@/components/Bot";
 import { Mark } from "@/components/Logo";
+import { SiteFoot } from "@/components/SiteFoot";
 import { ARCHETYPES, firstStageIdx, GUIDE, type Archetype } from "@/game/council";
 import { STAGES } from "@/game/run";
 
@@ -63,6 +64,7 @@ export default function JevsPage() {
           </ul>
         </div>
       </section>
+      <SiteFoot />
     </div>
   );
 }

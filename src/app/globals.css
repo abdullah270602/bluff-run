@@ -215,7 +215,14 @@ button.pill-lime:hover, a.pill-lime:hover { background: #ffffff; color: var(--ac
 .member-stat { text-align: right; font-size: 11.5px; color: var(--text-3); white-space: nowrap; }
 .member-stat strong { display: block; color: var(--text); font-weight: 500; font-size: 14px; }
 .results-kicker { font-size: 13px; color: var(--gold); margin-bottom: 8px; }
-.site-foot .brand { white-space: nowrap; }
+.site-foot .brand { white-space: nowrap; font-size: 14px; }
+.built-by { display: flex; align-items: center; gap: 14px; }
+.built-links { display: inline-flex; align-items: center; gap: 4px; }
+.built-links a { display: inline-flex; width: 30px; height: 30px; align-items: center; justify-content: center; border-radius: 50%; color: var(--text-2); text-decoration: none; transition: color 0.18s, background-color 0.18s; }
+.built-links a:hover { color: var(--text); background: rgba(255, 255, 255, 0.08); }
+.built-links svg { width: 16px; height: 16px; }
+.star-btn { gap: 7px; } .star-btn svg { width: 14px; height: 14px; color: var(--gold); }
+.intro-nav .star-btn { height: 34px; padding: 0 14px; font-size: 13.5px; color: var(--text); }
 .site-foot a { color: var(--text-2); text-decoration: underline; text-underline-offset: 3px; }
 
 /* hand + stage banners on the felt */

@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BEST_RUN_KEY } from "@/components/Arena";
 import { Mark } from "@/components/Logo";
+import { SiteFoot } from "@/components/SiteFoot";
+import { StarButton } from "@/components/StarButton";
 import { TableWindow, type SeatVM } from "@/components/TableWindow";
 import { parseCard } from "@/engine/cards";
 import { HeroDuel } from "@/components/HeroDuel";
@@ -26,6 +28,7 @@ export default function Landing() {
           <span className="brand"><Mark color="var(--accent)" />Bluff Run</span>
           <nav className="intro-nav" aria-label="Page">
             {best && <Link href={`/r/${encodeRun(best)}`}>Best run: stage {best.stageIdx + 1}</Link>}
+            <StarButton />
           </nav>
         </div>
         <div className="intro-copy">
@@ -60,10 +63,7 @@ export default function Landing() {
         <JevTable />
       </section>
 
-      <footer className="site-foot">
-        <span className="brand" style={{ fontSize: 14 }}><Mark size={18} color="var(--accent)" />Bluff Run</span>
-        <span>Same council for everyone today. <Link href="/play?council=random">Practice with a random one</Link>.</span>
-      </footer>
+      <SiteFoot />
     </div>
   );
 }
