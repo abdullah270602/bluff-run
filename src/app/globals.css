@@ -396,7 +396,22 @@ button.pill-lime:hover, a.pill-lime:hover { background: #ffffff; color: var(--ac
 .intro-nav a:hover { color: var(--text); }
 .intro-copy { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 8px 0 12px; }
 .intro-title { font-size: clamp(34px, 4.2vw, 52px); font-weight: 600; letter-spacing: -0.025em; line-height: 1.08; margin-bottom: 12px; }
-.intro-sub { font-size: 17px; line-height: 1.55; color: var(--text-2); max-width: 520px; margin-bottom: 24px; }
+.intro-sub { font-size: 17px; line-height: 1.55; color: var(--text-2); max-width: 520px; margin-bottom: 26px; }
+/* you against the council, doubling */
+.duel-wrap { display: flex; flex-direction: column; align-items: center; margin-bottom: 26px; }
+.duel { display: flex; align-items: center; justify-content: center; gap: 26px; }
+.duel-side { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 132px; }
+.duel-side > span { font-size: 13.5px; font-weight: 500; color: var(--text-2); }
+.duel-side .avatar { width: 56px; height: 56px; margin: 34px 0; }
+.duel-vs { font-size: 14px; color: var(--text-3); padding-bottom: 30px; }
+.duel-council { display: grid; gap: 3px; width: 124px; height: 124px; align-content: center; justify-content: center; }
+.duel-council svg { display: block; animation: popIn 0.32s var(--ease-out) both; }
+.duel-stages { display: flex; justify-content: center; align-items: flex-end; gap: 8px; margin-top: 14px; }
+.duel-rung { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; height: 40px; min-width: 34px; padding: 4px 2px 0; background: none; border: 0; border-radius: 8px; color: var(--text-3); font: inherit; font-size: 12px; cursor: pointer; transition: color 0.3s; }
+.duel-rung i { display: block; width: 26px; height: var(--h, 6px); border-radius: 3px; background: rgba(255, 255, 255, 0.14); transition: background-color 0.4s; }
+.duel-rung.done i { background: var(--accent); }
+.duel-rung.now i { background: var(--gold); } .duel-rung.now { color: var(--text); }
+.duel-rung:focus-visible { outline: 1.5px solid var(--gold); outline-offset: 2px; }
 .showcase { margin-bottom: 88px; position: relative; }
 .showcase .poker-window { pointer-events: none; }
 .showcase-link { position: absolute; inset: 0; border-radius: 22px; z-index: 40; }
@@ -404,12 +419,6 @@ button.pill-lime:hover, a.pill-lime:hover { background: #ffffff; color: var(--ac
 .loop-head { max-width: 500px; margin-bottom: 28px; }
 .loop-title { font-size: clamp(26px, 3vw, 34px); font-weight: 600; letter-spacing: -0.02em; margin-bottom: 10px; }
 .loop-desc { font-size: 15.5px; line-height: 1.6; color: var(--text-2); }
-.track { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: 36px; }
-.track .pill { min-width: 52px; }
-.loop-readout { display: flex; flex-direction: column; align-items: center; margin-bottom: 64px; }
-.loop-readout-label { font-size: 13.5px; font-weight: 500; color: #b8c9c0; margin-bottom: 6px; }
-.loop-big { font-size: clamp(56px, 7vw, 76px); font-weight: 600; line-height: 1; letter-spacing: -0.025em; margin-bottom: 14px; }
-.loop-caption { font-size: 15.5px; line-height: 1.55; color: var(--text-2); max-width: 440px; margin-bottom: 18px; }
 /* shown, not told: two real UI fragments with a caption */
 .shown { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; text-align: left; }
 .shown figure { margin: 0; display: grid; grid-template-rows: 150px auto; gap: 18px; padding: 22px 24px 24px; border-radius: 22px; background: rgba(6, 12, 10, 0.42); border: 1px solid rgba(255, 255, 255, 0.05); }
@@ -493,6 +502,8 @@ button.pill-lime:hover, a.pill-lime:hover { background: #ffffff; color: var(--ac
   .jev-plate h3 { font-size: 19px; }
   .jev-plate p { font-size: 13.5px; }
   .jev-plate .guide-lean { width: 150px; }
+  .duel { gap: 14px; } .duel-side { width: 108px; } .duel-council { width: 104px; height: 104px; } .duel-side .avatar { margin: 24px 0; }
+  .duel-stages { gap: 4px; } .duel-rung { min-width: 30px; font-size: 11px; } .duel-rung i { width: 22px; }
   .shown { grid-template-columns: 1fr; }
   .guide { margin-top: 48px; }
   .guide-head { grid-template-columns: 1fr; gap: 8px; }
