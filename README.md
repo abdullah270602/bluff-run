@@ -2,6 +2,8 @@
 
 **How many Jevs can you beat?**
 
+![Bluff Run: the council votes, the seat acts](docs/bluff-run.gif)
+
 Heads-up no-limit Hold'em against a council of AI players that vote on every move. Beat one, and next hand there are two of them in the chair. Then 4, 8, 16, 32, 64, 100.
 
 Live at [bluff-run.win](https://bluff-run.win).
