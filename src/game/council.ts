@@ -128,3 +128,14 @@ export const GUIDE: Record<Archetype, { style: string; lean: [number, number, nu
   clock: { style: "Balanced", lean: [1.2, 1.6, 1.7], mood: "think" },
 };
 export const firstStageIdx = (a: Archetype) => POOLS.findIndex((p) => p[a] > 0);
+
+/** Table talk: one line from the member who carried the vote, after a pot worth talking about. The Rock says nothing. */
+export const QUIPS: Record<Archetype, { win: string[]; lose: string[] }> = {
+  plain: { win: ["Noted.", "That works."], lose: ["Hm.", "Fair enough."] },
+  rock: { win: [], lose: [] },
+  station: { win: ["Had to see it.", "Knew you had nothing."], lose: ["Still would have called.", "Worth a look."] },
+  grinder: { win: ["Value.", "Thin, but value."], lose: ["Fine. Next hand.", "You had it. This time."] },
+  hustler: { win: ["Easy.", "Told you."], lose: ["Lucky.", "Run it again."] },
+  maniac: { win: ["Never in doubt.", "More."], lose: ["Rematch.", "Who dealt this?"] },
+  clock: { win: ["As expected.", "On schedule."], lose: ["Interesting line.", "Noted for later."] },
+};

@@ -10,7 +10,8 @@ import { TableWindow, type SeatVM } from "@/components/TableWindow";
 import { parseCard } from "@/engine/cards";
 import { HeroDuel } from "@/components/HeroDuel";
 import { JevTable } from "@/components/JevTable";
-import { encodeRun, type RunStats } from "@/game/share";
+import { encodeRun, todaySeed, type RunStats } from "@/game/share";
+import { readStreak, streakLine } from "@/game/streak";
 
 const P = (s: string) => parseCard(s);
 const demoJev: SeatVM = { id: "jev", name: "Jev", mood: "think", variant: 5, sub: "council of 16", stack: 200, bet: 0, folded: false, allIn: false, out: false, hole: null, status: { text: "Deliberating", tone: "think" }, dealer: false, turn: true, winner: false };
@@ -19,7 +20,8 @@ const demoYou: SeatVM = { id: "you", name: "You", mood: "idle", variant: 4, stac
 
 export default function Landing() {
   const [best, setBest] = useState<RunStats | null>(null);
-  useEffect(() => { try { const raw = localStorage.getItem(BEST_RUN_KEY); if (raw) setBest(JSON.parse(raw)); } catch { /* none */ } }, []);
+  const [streak, setStreak] = useState<string | null>(null);
+  useEffect(() => { try { const raw = localStorage.getItem(BEST_RUN_KEY); if (raw) setBest(JSON.parse(raw)); } catch { /* none */ } setStreak(streakLine(readStreak(), todaySeed())); }, []);
 
   return (
     <div className="page-shell">
@@ -36,6 +38,7 @@ export default function Landing() {
           <p className="intro-sub">Heads-up poker with a council of Jevs that vote on every move. Beat one, and next hand there are two of them in the chair.</p>
           <HeroDuel />
           <Link href="/play" className="pill pill-lime pill-lg">Sit at the table</Link>
+          {streak && <p className="streak-line num">{streak}</p>}
         </div>
       </section>
 

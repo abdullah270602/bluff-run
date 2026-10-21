@@ -5,15 +5,24 @@ import { useSearchParams } from "next/navigation";
 import { allowedChoices, timedOutChoice, type Decision, type Vote } from "@/brains/types";
 import { bestFive, evaluate } from "@/engine/evaluate";
 import { act, dealHand, legal, liveSeats, potSize, type Action, type HandState } from "@/engine/hand";
-import { ARCHETYPES, buildCouncil, groupOf, hashSeed, newSeed, rngFrom, tally, type Member } from "@/game/council";
+import { ARCHETYPES, buildCouncil, groupOf, hashSeed, newSeed, QUIPS, rngFrom, tally, type Member } from "@/game/council";
 import { blindsFor, buildView, PLAYER_ID, resolveChoice, SEAT_ID, START_STACK, STAGES } from "@/game/run";
 import { memberStats, recordHand, type HandRecord } from "@/game/review";
+import { markPlayed, noteBest } from "@/game/streak";
 import { dailyNumber, emptyStats, todaySeed, type RunStats } from "@/game/share";
 import type { Mood } from "./Bot";
 import { Mark } from "./Logo";
 import { Results } from "./Results";
 import { Review } from "./Review";
 import { TableWindow, type Deliberation, type Flight, type SeatVM, type Tone } from "./TableWindow";
+
+/** The closest the council came to going broke in the final stage, when that is worth a line. */
+function nearMiss(log: HandRecord[], stageN: number, s: RunStats): string | undefined {
+  if (s.won || s.cleared > s.stageIdx) return undefined;
+  let low = Infinity, at = 0;
+  for (const r of log) { if (r.stageN !== stageN) continue; const seat = r.seats.find((x) => x.id === SEAT_ID); if (seat && seat.end > 0 && seat.end < low) { low = seat.end; at = r.handNo; } }
+  return low <= START_STACK * 0.25 ? `You had the council down to ${low} chips in hand ${at}. That close.` : undefined;
+}
 
 export const BEST_RUN_KEY = "bluff_run_best_v2";
 export function saveBestRun(s: RunStats) {
@@ -60,6 +69,8 @@ export function Arena() {
   const [seatShape, setSeatShape] = useState(0);
   const [tellMood, setTellMood] = useState<Mood | null>(null);
   const [statuses, setStatuses] = useState<Record<string, Status>>({});
+  const [talk, setTalk] = useState<string | null>(null);
+  const talkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [raiseOpen, setRaiseOpen] = useState(false);
   const [raiseTo, setRaiseTo] = useState(0);
   const [drawer, setDrawer] = useState<null | "help" | "log">(null);
@@ -97,6 +108,8 @@ export function Arena() {
     setHand({ ...h });
     setStatuses({});
     setDelib(null);
+    if (talkTimer.current) clearTimeout(talkTimer.current);
+    setTalk(null);
     setRaiseOpen(false);
     setPhase("hand");
     setHandNo(n);
@@ -231,6 +244,15 @@ export function Arena() {
     const jev = hand.seats.find((s) => s.id === SEAT_ID);
     const busted = !youSeat || youSeat.stack === 0;
     const cleared = !busted && Boolean(jev) && jev!.stack === 0;
+    if (daily) { markPlayed(todaySeed()); noteBest(todaySeed(), stageIdx + (cleared ? 2 : 1)); }
+    // table talk: the member who carried the last vote has a word after a pot worth talking about
+    const carried = Object.values(decisions.current).reverse().find((d) => d.carriedBy?.length);
+    const speaker = carried && council.find((m) => m.id === carried.carriedBy![0]);
+    const potWon = ws.reduce((t, w) => t + w.amount, 0);
+    if (speaker && (hand.result?.showdown || potWon >= 100)) {
+      const lines = QUIPS[speaker.archetype][ws.some((w) => w.seat === SEAT_ID) ? "win" : "lose"];
+      if (lines.length) { const r = rngFrom(hashSeed(`${seed}:${stageIdx}:${hand.handNo}:talk`)); talkTimer.current = setTimeout(() => setTalk(`${speaker.name}: “${lines[Math.floor(r() * lines.length)]}”`), hand.result?.showdown ? 1600 : 700); }
+    }
     const won = ws.find((w) => w.seat === PLAYER_ID);
     const ev = youSeat && !youSeat.folded && hand.board.length >= 3 ? evaluate(youSeat.hole.concat(hand.board)) : null;
     // tilt: the seat lost a big pot
@@ -257,7 +279,7 @@ export function Arena() {
     if (!busted && !cleared) return () => { clearTimeout(t1); clearTimeout(t2); };
     const t = setTimeout(() => setPhase(busted ? "runOver" : stageIdx === STAGES.length - 1 ? "runOver" : "stageCleared"), hand.result?.showdown ? 5200 : 2400);
     return () => { clearTimeout(t); clearTimeout(t1); clearTimeout(t2); };
-  }, [hand, stageIdx, stageN, names, fly]);
+  }, [hand, stageIdx, stageN, names, fly, council, daily, seed]);
 
   const advance = useCallback(() => {
     if (phase === "stageCleared") startStage(stageIdx + 1);
@@ -324,7 +346,7 @@ export function Arena() {
   };
 
   const seatVM: SeatVM | null = jevSeat ? {
-    id: SEAT_ID, name: "Jev", mood: moodFor(SEAT_ID, jevSeat, statuses[SEAT_ID]?.tone), variant: seatShape, sub: stageN > 1 ? `council of ${stageN}` : undefined,
+    id: SEAT_ID, name: "Jev", mood: moodFor(SEAT_ID, jevSeat, statuses[SEAT_ID]?.tone), variant: seatShape, sub: talk ?? (stageN > 1 ? `council of ${stageN}` : undefined),
     stack: jevSeat.stack - (pendingWin[SEAT_ID] ?? 0), bet: done ? 0 : jevSeat.bet, folded: jevSeat.folded, allIn: jevSeat.allIn, out: jevSeat.stack === 0 && !done,
     hole: done && hand?.result?.showdown && !jevSeat.folded ? jevSeat.hole : null,
     status: thinking ? { text: stageN > 1 ? "Deliberating" : "Thinking", tone: "think" } : statuses[SEAT_ID] ?? null,
@@ -435,6 +457,7 @@ export function Arena() {
     if (phase === "runOver") return (
       <Results
         stats={stats}
+        nearMiss={nearMiss(runLog, stageN, stats)}
         council={memberStats(council, runLog, SEAT_ID, stageN)}
         onPlayAgain={() => restart(false)}
         onSameCouncil={() => restart(true)}

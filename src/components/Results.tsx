@@ -11,7 +11,7 @@ import { Bot } from "./Bot";
 import { StarButton } from "./StarButton";
 
 /** The run summary that fills the table window when a run ends, and the share page. */
-export function Results({ stats, right, council, onPlayAgain, onSameCouncil, shareView = false }: { stats: RunStats; right?: ReactNode; council?: MemberStat[]; onPlayAgain?: () => void; onSameCouncil?: () => void; shareView?: boolean }) {
+export function Results({ stats, right, council, nearMiss, onPlayAgain, onSameCouncil, shareView = false }: { stats: RunStats; right?: ReactNode; council?: MemberStat[]; nearMiss?: string; onPlayAgain?: () => void; onSameCouncil?: () => void; shareView?: boolean }) {
   const [copied, setCopied] = useState<"text" | "link" | null>(null);
   const code = encodeRun(stats);
   const url = () => (typeof window === "undefined" ? `/r/${code}` : `${window.location.origin}/r/${code}`);
@@ -34,6 +34,7 @@ export function Results({ stats, right, council, onPlayAgain, onSameCouncil, sha
           <div className="results-kicker num">{stats.daily ? `Daily council #${stats.daily}` : `Council ${stats.seed}`}</div>
           <h2>{title}</h2>
           <p className="results-sub">{sub}</p>
+          {nearMiss && <p className="results-near">{nearMiss}</p>}
         </div>
         <div className="results-track" aria-label="Stages">
           {STAGES.map((s, i) => <span key={s} className={`pill num ${i < stats.cleared ? "pill-lime" : i === stats.stageIdx && !stats.won ? "active" : ""}`}>×{s}</span>)}
