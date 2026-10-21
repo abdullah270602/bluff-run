@@ -8,7 +8,7 @@ import { TableWindow, type SeatVM } from "@/components/TableWindow";
 import { parseCard } from "@/engine/cards";
 import { HeroDuel } from "@/components/HeroDuel";
 import { JevTable } from "@/components/JevTable";
-import { dailyNumber, encodeRun, type RunStats } from "@/game/share";
+import { encodeRun, type RunStats } from "@/game/share";
 
 const P = (s: string) => parseCard(s);
 const demoJev: SeatVM = { id: "jev", name: "Jev", mood: "think", variant: 5, sub: "council of 16", stack: 200, bet: 0, folded: false, allIn: false, out: false, hole: null, status: { text: "Deliberating", tone: "think" }, dealer: false, turn: true, winner: false };
@@ -33,9 +33,9 @@ export default function Landing() {
         </div>
         <div className="intro-copy">
           <h1 className="intro-title">How many Jevs can you beat?</h1>
-          <p className="intro-sub">Heads-up poker against a council of AI players that vote on every move. Beat one, and next hand there are two of them in the chair.</p>
+          <p className="intro-sub">Heads-up poker with a council of Jevs that vote on every move. Beat one, and next hand there are two of them in the chair.</p>
           <HeroDuel />
-          <Link href="/play" className="pill pill-lime pill-lg">Sit at the table<span className="pill-sub num">Daily council #{dailyNumber()}</span></Link>
+          <Link href="/play" className="pill pill-lime pill-lg">Sit at the table</Link>
         </div>
       </section>
 
