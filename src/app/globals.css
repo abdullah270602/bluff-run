@@ -524,6 +524,13 @@ button.pill-lime:hover, a.pill-lime:hover { background: #ffffff; color: var(--ac
 .share-shell .poker-window { width: 100%; max-width: 1180px; height: auto; min-height: 560px; }
 .share-shell .results { position: relative; }
 
+/* 404 */
+.lost { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 40px 0 80px; }
+.lost .avatar { width: 96px; height: 96px; margin-bottom: 22px; }
+.lost h1 { font-size: clamp(30px, 4vw, 44px); font-weight: 600; letter-spacing: -0.025em; line-height: 1.1; margin-bottom: 10px; }
+.lost p { font-size: 16.5px; line-height: 1.55; color: var(--text-2); max-width: 420px; margin-bottom: 28px; }
+.lost-acts { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; }
+
 /* ---------- responsive ---------- */
 @media (max-width: 860px) {
   .page-shell { padding: 20px 16px 64px; }
