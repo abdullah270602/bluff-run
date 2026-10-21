@@ -25,9 +25,6 @@ export default function Landing() {
         <div className="intro-top">
           <span className="brand"><Mark color="var(--accent)" />Bluff Run</span>
           <nav className="intro-nav" aria-label="Page">
-            <a href="#table">Table</a>
-            <a href="#council">The council</a>
-            <Link href="/jevs">The Jevs</Link>
             {best && <Link href={`/r/${encodeRun(best)}`}>Best run: stage {best.stageIdx + 1}</Link>}
           </nav>
         </div>
