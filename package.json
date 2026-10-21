@@ -10,6 +10,7 @@
     "test": "tsx src/engine/engine.test.ts"
   },
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "motion": "^14.4.0",
     "next": "^16.4.2",
     "react": "^19.3.1",
